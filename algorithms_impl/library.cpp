@@ -112,44 +112,6 @@ clazz *LoadBalancingTemplate(const clazz *job_exec_times, int n, int worker_num)
     return result;
 }
 
-//extern "C" int *LoadBalancingInt(const int *job_exec_times, int n, int worker_num) {
-//    int *result = new int[n + worker_num];
-//    std::vector<int> job_assignment(worker_num, 1);
-//    job_assignment[worker_num - 1] = n - worker_num + 1;
-//    int min_time = std::numeric_limits<int>::max();
-//    std::vector<int> job_exec_vec(job_exec_times, job_exec_times + n);
-//    std::sort(job_exec_vec.begin(), job_exec_vec.end());
-//    int assignment_min_time;
-//    int worker_time;
-//    do {
-//        do {
-//            assignment_min_time = std::numeric_limits<int>::min();
-//            int start = 0;
-//            for (int i = 0; i < worker_num; ++i) {
-//                worker_time = 0;
-//                for (int j = 0; j < job_assignment[i]; ++j) {
-//                    worker_time += job_exec_vec[start + j];
-//                }
-//                if (worker_time > assignment_min_time) {
-//                    assignment_min_time = worker_time;
-//                }
-//                start += job_assignment[i];
-//            }
-//            if (assignment_min_time < min_time) {
-//                min_time = assignment_min_time;
-//                for (int i = 0; i < worker_num; ++i) {
-//                    result[i] = job_assignment[i];
-//                }
-//                for (int i = worker_num; i < n + worker_num; ++i) {
-//                    result[i] = job_exec_vec[i - worker_num];
-//                }
-//            }
-//        } while (std::next_permutation(job_exec_vec.begin(), job_exec_vec.end()));
-//        std::sort(job_exec_vec.begin(), job_exec_vec.end());
-//    } while (next_assignment(job_assignment.begin(), job_assignment.end(), n));
-//    return result;
-//}
-
 extern "C" int *LoadBalancingInt(const int *job_exec_times, int n, int worker_num) {
     return LoadBalancingTemplate(job_exec_times, n, worker_num);
 }
@@ -160,14 +122,17 @@ extern "C" float *LoadBalancingFloat(const float *job_exec_times, int n, int wor
 
 template<typename clazz>
 clazz *LoadBalancingGreedyTemplate(const clazz *job_exec_times, int n, int worker_num) {
-    // best case + worst case
-    auto result = new clazz[n + n];
+    // best case + worst case + average load time (float32, when `clazz` is not float32, it will be `reinterpret_cast`ed)
+    static_assert(sizeof(clazz) >= sizeof(float), "clazz must be at least as big as float32");
+    auto result = new clazz[n + n + 1];
     auto best_time = std::numeric_limits<clazz>::max();
     auto worst_time = std::numeric_limits<clazz>::min();
     std::vector<clazz> job_exec_vec(job_exec_times, job_exec_times + n);
     std::sort(job_exec_vec.begin(), job_exec_vec.end());
     auto arr = new clazz[worker_num];
     clazz zero = 0;
+    float avg_time = 0;
+    int num_permutations = 0;
     do {
         std::fill(arr, arr + worker_num, zero);
         for (int i = 0; i < n; ++i) {
@@ -185,6 +150,8 @@ clazz *LoadBalancingGreedyTemplate(const clazz *job_exec_times, int n, int worke
                 max_time = arr[i];
             }
         }
+        avg_time += max_time;
+        ++num_permutations;
         if (max_time < best_time) {
             best_time = max_time;
             for (int i = 0; i < n; ++i) {
@@ -199,51 +166,10 @@ clazz *LoadBalancingGreedyTemplate(const clazz *job_exec_times, int n, int worke
         }
     } while (std::next_permutation(job_exec_vec.begin(), job_exec_vec.end()));
     delete [] arr;
+    avg_time /= float(num_permutations);
+    result[n + n] = *reinterpret_cast<clazz*>(&avg_time);
     return result;
 }
-
-
-//extern "C" int *LoadBalancingGreedyInt(const int *job_exec_times, int n, int worker_num) {
-//    // best case + worst case
-//    int *result = new int[n + n];
-//    int best_time = std::numeric_limits<int>::max();
-//    int worst_time = std::numeric_limits<int>::min();
-//    std::vector<int> job_exec_vec(job_exec_times, job_exec_times + n);
-//    std::sort(job_exec_vec.begin(), job_exec_vec.end());
-//    int *arr = new int[worker_num];
-//    do {
-//        std::fill(arr, arr + worker_num, 0);
-//        for (int i = 0; i < n; ++i) {
-//            int min_worker = 0;
-//            for (int j = 1; j < worker_num; ++j) {
-//                if (arr[j] < arr[min_worker]) {
-//                    min_worker = j;
-//                }
-//            }
-//            arr[min_worker] += job_exec_vec[i];
-//        }
-//        int max_time = std::numeric_limits<int>::min();
-//        for (int i = 0; i < worker_num; ++i) {
-//            if (arr[i] > max_time) {
-//                max_time = arr[i];
-//            }
-//        }
-//        if (max_time < best_time) {
-//            best_time = max_time;
-//            for (int i = 0; i < n; ++i) {
-//                result[i] = job_exec_vec[i];
-//            }
-//        }
-//        if (max_time > worst_time) {
-//            worst_time = max_time;
-//            for (int i = 0; i < n; ++i) {
-//                result[n + i] = job_exec_vec[i];
-//            }
-//        }
-//    } while (std::next_permutation(job_exec_vec.begin(), job_exec_vec.end()));
-//    delete [] arr;
-//    return result;
-//}
 
 extern "C" int *LoadBalancingGreedyInt(const int *job_exec_times, int n, int worker_num) {
     return LoadBalancingGreedyTemplate(job_exec_times, n, worker_num);

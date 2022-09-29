@@ -58,28 +58,6 @@ def plot_load_balancing_bar_chat(val: List[List[float | int]], worker_label: Lis
     plt.show()
 
 
-def get_best_load_balancing(val: List[float | int], worker_num) -> List[List[float | int]]:
-    """
-    Parameters
-    ----------
-    val : List[float | int]
-        The values to distribute.
-    worker_num : int
-        The number of workers.
-
-    Returns
-    -------
-    List[List[float | int]]
-        The best load balancing.
-    """
-    val = deepcopy(val)
-    val.sort(reverse=True)
-    res = [[] for _ in range(worker_num)]
-    for i in range(len(val)):
-        res[i % worker_num].append(val[i])
-    return res
-
-
 def task1_1() -> Tuple[np.ndarray, int]:
     """
     Task 1.1
@@ -146,7 +124,7 @@ def main():
     jobs, worker_num = task_3_1()
 
     load, val = load_balancing_float(jobs, worker_num)
-    (best_load, best_val), (worst_load, worst_val) \
+    (best_load, best_val), (worst_load, worst_val), *_ \
         = load_balancing_greedy_float(jobs, worker_num)
 
     print(f'optimal_val={val}')
@@ -216,7 +194,7 @@ def pso_minimize_cost(jobs):
     jobs = np.array(jobs, dtype=np.float32)
     worker_num = 4
     _, val = load_balancing_float(jobs, worker_num)
-    _, (_, worst_val) = load_balancing_greedy_float(jobs, worker_num)
+    _, (_, worst_val), *_ = load_balancing_greedy_float(jobs, worker_num)
     return -(worst_val / val)
 
 

@@ -2,6 +2,7 @@ import os
 import sys
 
 from ctypes import *
+from struct import pack, unpack
 from typing import Tuple, List
 
 import numpy as np
@@ -144,7 +145,7 @@ def _load_balancing_greedy_helper(jobs: np.ndarray, worker_num: int) -> Tuple[Li
     return job_arr, np.max(value_arr)
 
 
-def load_balancing_greedy_int(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[List[List[int]], int], Tuple[List[List[int]], int]]:
+def load_balancing_greedy_int(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[List[List[int]], int], Tuple[List[List[int]], int], float]:
     """
     Parameters
     ----------
@@ -155,16 +156,20 @@ def load_balancing_greedy_int(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[
 
     Returns
     -------
-    Tuple[Tuple[List[List[int]], int], Tuple[List[List[int]], int]]
+    Tuple[Tuple[List[List[int]], int], Tuple[List[List[int]], int], float]
         The best load of each worker and the maximum load value,
         and the worst load of each worker and the maximum load value.
+        The last float is the average load value.
     """
     jobs = jobs.astype(np.int32)
     res = _load_balancing_greedy_int(jobs, len(jobs), worker_num)
-    res = as_array(res, shape=(2 * len(jobs),))
+    res = as_array(res, shape=(2 * len(jobs) + 1,))
     best_res = _load_balancing_greedy_helper(res[:len(jobs)], worker_num)
-    worst_res = _load_balancing_greedy_helper(res[len(jobs):], worker_num)
-    return best_res, worst_res
+    worst_res = _load_balancing_greedy_helper(res[len(jobs):-1], worker_num)
+    avg_time = res[-1]
+    avg_time = pack('i', avg_time)
+    avg_time = unpack('f', avg_time)[0]
+    return best_res, worst_res, avg_time
 
 
 def load_balancing_float(jobs: np.ndarray, worker_num: int) -> Tuple[List[List[float]], float]:
@@ -195,7 +200,7 @@ def load_balancing_float(jobs: np.ndarray, worker_num: int) -> Tuple[List[List[f
     return res_arr, max_time
 
 
-def load_balancing_greedy_float(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[List[List[float]], float], Tuple[List[List[float]], float]]:
+def load_balancing_greedy_float(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[List[List[float]], float], Tuple[List[List[float]], float], float]:
     """
     Parameters
     ----------
@@ -206,13 +211,14 @@ def load_balancing_greedy_float(jobs: np.ndarray, worker_num: int) -> Tuple[Tupl
 
     Returns
     -------
-    Tuple[Tuple[List[List[float]], float], Tuple[List[List[float]], float]]
+    Tuple[Tuple[List[List[float]], float], Tuple[List[List[float]], float], float]
         The best load of each worker and the maximum load value,
         and the worst load of each worker and the maximum load value.
+        The last float is the average load value.
     """
     jobs = jobs.astype(np.float32)
     res = _load_balancing_greedy_float(jobs, len(jobs), worker_num)
-    res = as_array(res, shape=(2 * len(jobs),))
+    res = as_array(res, shape=(2 * len(jobs) + 1,))
     best_res = _load_balancing_greedy_helper(res[:len(jobs)], worker_num)
-    worst_res = _load_balancing_greedy_helper(res[len(jobs):], worker_num)
-    return best_res, worst_res
+    worst_res = _load_balancing_greedy_helper(res[len(jobs):-1], worker_num)
+    return best_res, worst_res, res[-1]
