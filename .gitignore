@@ -1,0 +1,8 @@
+build/
+__pycache__/
+*.pyc
+*.pyx
+*.pyi
+.idea/
+cmake-build-*/
+*.so
