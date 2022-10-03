@@ -60,11 +60,27 @@ def _c_load_balancing_greedy_float():
     return lb
 
 
+def _c_load_balancing_diff_exec_time_int():
+    lb = _lib.LoadBalancingDifferentExecTimeInt
+    lb.restype = POINTER(c_int)
+    lb.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'), c_int, c_int]
+    return lb
+
+
+def _c_load_balancing_diff_exec_time_float():
+    lb = _lib.LoadBalancingDifferentExecTimeFloat
+    lb.restype = POINTER(c_float)
+    lb.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int, c_int]
+    return lb
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
 _load_balancing_float = _c_load_balancing_float()
 _load_balancing_greedy_float = _c_load_balancing_greedy_float()
+_load_balancing_diff_exec_time_int = _c_load_balancing_diff_exec_time_int()
+_load_balancing_diff_exec_time_float = _c_load_balancing_diff_exec_time_float()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -222,3 +238,67 @@ def load_balancing_greedy_float(jobs: np.ndarray, worker_num: int) -> Tuple[Tupl
     best_res = _load_balancing_greedy_helper(res[:len(jobs)], worker_num)
     worst_res = _load_balancing_greedy_helper(res[len(jobs):-1], worker_num)
     return best_res, worst_res, res[-1]
+
+
+def load_balancing_diff_exec_time_int(jobs: np.ndarray, worker_num: int) -> Tuple[List[List[int]], int]:
+    """
+    Parameters
+    ----------
+    jobs : np.ndarray
+        The jobs to distribute.
+    worker_num : int
+        The number of workers.
+
+    Returns
+    -------
+    Tuple[List[List[int]], int]
+        The load of each worker and the maximum load value.
+    """
+    jobs = jobs.astype(np.int32).flatten('C')
+    res = _load_balancing_diff_exec_time_int(jobs, len(jobs), worker_num)
+    res = as_array(res, shape=(2*worker_num + len(jobs),))
+    res_arr = [[] for _ in range(worker_num)]
+    start = worker_num
+    max_time = 0
+    for i in range(worker_num):
+        end = start + res[i]
+        res_arr[i].extend([*res[start:end]])
+        max_time = max(max_time, sum(res_arr[i]))
+        start = end
+    worker_order = res[start:]
+    # sort the res_arr according to the worker_order
+    res_arr = [res_arr[i] for i in np.argsort(worker_order)]
+    return res_arr, max_time
+
+
+def load_balancing_diff_exec_time_float(jobs: np.ndarray, worker_num: int) -> Tuple[List[List[float]], float]:
+    """
+    Parameters
+    ----------
+    jobs : np.ndarray
+        The jobs to distribute.
+    worker_num : int
+        The number of workers.
+
+    Returns
+    -------
+    Tuple[List[List[float]], float]
+        The load of each worker and the maximum load value.
+    """
+    jobs = jobs.astype(np.float32).flatten('C')
+    res = _load_balancing_diff_exec_time_float(jobs, len(jobs), worker_num)
+    res = as_array(res, shape=(2*worker_num + len(jobs),))
+    res_arr = [[] for _ in range(worker_num)]
+    start = worker_num
+    max_time = 0
+    for i in range(worker_num):
+        end = start + res[i]
+        res_arr[i].extend([*res[start:end]])
+        max_time = max(max_time, sum(res_arr[i]))
+        start = end
+    worker_order = res[start:]
+    # sort the res_arr according to the worker_order
+    pk = pack('f'*len(worker_order), *worker_order)
+    worker_order = list(unpack('i'*len(worker_order), pk))
+    res_arr = [res_arr[i] for i in np.argsort(worker_order)]
+    return res_arr, max_time

@@ -178,3 +178,74 @@ extern "C" int *LoadBalancingGreedyInt(const int *job_exec_times, int n, int wor
 extern "C" float *LoadBalancingGreedyFloat(const float *job_exec_times, int n, int worker_num) {
     return LoadBalancingGreedyTemplate(job_exec_times, n, worker_num);
 }
+
+template<typename clazz>
+clazz *LoadBalancingDifferentExecTimeTemplate(const clazz *job_exec_times, int n, int worker_num) {
+    static_assert(sizeof(clazz) >= sizeof(float), "clazz must be at least as big as float32");
+    float order_addon_size_f = float(worker_num * sizeof(int)) / sizeof(clazz);
+    int order_addon_size = float(int(order_addon_size_f)) < order_addon_size_f ? int(order_addon_size_f) + 1 : int(order_addon_size_f);
+    auto result = new clazz[n + worker_num + order_addon_size];
+    std::vector<clazz> job_assignment(worker_num, 0);
+    job_assignment[worker_num - 1] = n;
+    auto min_time = std::numeric_limits<clazz>::max();
+    std::vector<int> job_exec_vec;
+    std::vector<int> worker_vec;
+    job_exec_vec.reserve(n);
+    worker_vec.reserve(worker_num);
+    for (int i = 0; i < n; ++i) {
+        job_exec_vec.push_back(i);
+    }
+    for (int i = 0; i < worker_num; ++i) {
+        worker_vec.push_back(i);
+    }
+    std::sort(job_exec_vec.begin(), job_exec_vec.end());
+    clazz assignment_min_time;
+    clazz worker_time;
+    std::vector<int> worker_order;
+    do {
+        do {
+            assignment_min_time = std::numeric_limits<clazz>::min();
+            std::sort(worker_vec.begin(), worker_vec.end());
+            do {
+                int start = 0;
+                for (int i = 0; i < worker_num; ++i) {
+                    worker_time = 0;
+                    for (int j = 0; j < job_assignment[i]; ++j) {
+                        auto worker_start = n * worker_vec[i];
+                        worker_time += job_exec_times[worker_start + job_exec_vec[start + j]];
+                    }
+                    if (worker_time > assignment_min_time) {
+                        assignment_min_time = worker_time;
+                        worker_order = worker_vec;
+                    }
+                    start += job_assignment[i];
+                }
+            } while (std::next_permutation(worker_vec.begin(), worker_vec.end()));
+            if (assignment_min_time < min_time) {
+                min_time = assignment_min_time;
+                for (int i = 0; i < worker_num; ++i) {
+                    result[i] = job_assignment[i];
+                }
+                for (int i = worker_num; i < n + worker_num; ++i) {
+                    result[i] = job_exec_vec[i - worker_num];
+                }
+                char *pos = reinterpret_cast<char*>(result + n + worker_num);
+                for (int i = 0; i < worker_num; ++i) {
+                    int v = worker_order[i];
+                    *reinterpret_cast<int*>(pos) = v;
+                    pos += sizeof(int);
+                }
+            }
+        } while (std::next_permutation(job_exec_vec.begin(), job_exec_vec.end()));
+        std::sort(job_exec_vec.begin(), job_exec_vec.end());
+    } while (next_assignment(job_assignment.begin(), job_assignment.end(), n));
+    return result;
+}
+
+extern "C" int *LoadBalancingDifferentExecTimeInt(const int *job_exec_times, int n, int worker_num) {
+    return LoadBalancingDifferentExecTimeTemplate(job_exec_times, n, worker_num);
+}
+
+extern "C" float *LoadBalancingDifferentExecTimeFloat(const float *job_exec_times, int n, int worker_num) {
+    return LoadBalancingDifferentExecTimeTemplate(job_exec_times, n, worker_num);
+}

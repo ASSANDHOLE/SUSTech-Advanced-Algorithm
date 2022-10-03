@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from algorithms import load_balancing_int, load_balancing_greedy_int
 from algorithms import load_balancing_float, load_balancing_greedy_float
 
-from pso import pso_simple
+from algorithms import simple_pso
 
 
 def get_random_color() -> str:
@@ -202,7 +202,7 @@ def pso_opt_main():
     initial = [0.56425625, 0.06226046, 0.1495772, 0.0094707, 0.4112313,
                0.83713865, 0.5583354, 0.06189023, 0.27423367]
     bounds = [(0.01, 10) for _ in range(len(initial))]
-    pso_simple.minimize(pso_minimize_cost, initial, bounds, num_particles=100, maxiter=100, verbose=True)
+    simple_pso.minimize(pso_minimize_cost, initial, bounds, num_particles=100, maxiter=100, verbose=True)
 
 
 if __name__ == '__main__':
