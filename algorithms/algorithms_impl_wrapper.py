@@ -74,6 +74,20 @@ def _c_load_balancing_diff_exec_time_float():
     return lb
 
 
+def _c_center_selection_int():
+    cs = _lib.CenterSelectionInt
+    cs.restype = POINTER(c_int)
+    cs.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'), c_int, c_int]
+    return cs
+
+
+def _c_center_selection_float():
+    cs = _lib.CenterSelectionFloat
+    cs.restype = POINTER(c_float)
+    cs.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int, c_int]
+    return cs
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
@@ -81,6 +95,8 @@ _load_balancing_float = _c_load_balancing_float()
 _load_balancing_greedy_float = _c_load_balancing_greedy_float()
 _load_balancing_diff_exec_time_int = _c_load_balancing_diff_exec_time_int()
 _load_balancing_diff_exec_time_float = _c_load_balancing_diff_exec_time_float()
+_center_selection_int = _c_center_selection_int()
+_center_selection_float = _c_center_selection_float()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -302,3 +318,52 @@ def load_balancing_diff_exec_time_float(jobs: np.ndarray, worker_num: int) -> Tu
     worker_order = list(unpack('i'*len(worker_order), pk))
     res_arr = [res_arr[i] for i in np.argsort(worker_order)]
     return res_arr, max_time
+
+
+def center_selection_dist(points: np.ndarray, centers: np.ndarray) -> float:
+    dist = np.linalg.norm(points - centers[0], axis=1)
+    for i in range(1, centers.shape[0]):
+        dist = np.minimum(dist, np.linalg.norm(points - centers[i], axis=1))
+    return np.max(dist)
+
+
+def center_selection_int(points: np.ndarray, center_num: int) -> Tuple[float, np.ndarray]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to select.
+    center_num : int
+        The number of centers.
+
+    Returns
+    -------
+    Tuple[float, np.ndarray]
+        The maximum distance to any center and the centers.
+    """
+    points = points.astype(np.int32)
+    res = _center_selection_int(points, points.shape[0], center_num)
+    res = as_array(res, shape=(center_num, 2))
+    dist = center_selection_dist(points, res)
+    return dist, res
+
+
+def center_selection_float(points: np.ndarray, center_num: int) -> Tuple[float, np.ndarray]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to select.
+    center_num : int
+        The number of centers.
+
+    Returns
+    -------
+    Tuple[float, np.ndarray]
+        The maximum distance to any center and the centers.
+    """
+    points = points.astype(np.float32)
+    res = _center_selection_float(points, points.shape[0], center_num)
+    res = as_array(res, shape=(center_num, 2))
+    dist = center_selection_dist(points, res)
+    return dist, res

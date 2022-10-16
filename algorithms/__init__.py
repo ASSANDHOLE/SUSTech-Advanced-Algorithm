@@ -5,3 +5,6 @@ from .algorithms_impl_wrapper import load_balancing_float
 from .algorithms_impl_wrapper import load_balancing_greedy_float
 from .algorithms_impl_wrapper import load_balancing_diff_exec_time_int
 from .algorithms_impl_wrapper import load_balancing_diff_exec_time_float
+from .algorithms_impl_wrapper import center_selection_dist
+from .algorithms_impl_wrapper import center_selection_int
+from .algorithms_impl_wrapper import center_selection_float

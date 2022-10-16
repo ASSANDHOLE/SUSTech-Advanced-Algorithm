@@ -249,3 +249,70 @@ extern "C" int *LoadBalancingDifferentExecTimeInt(const int *job_exec_times, int
 extern "C" float *LoadBalancingDifferentExecTimeFloat(const float *job_exec_times, int n, int worker_num) {
     return LoadBalancingDifferentExecTimeTemplate(job_exec_times, n, worker_num);
 }
+
+bool next_combination(int *idx, int n, int k) {
+    int i = k - 1;
+    ++idx[i];
+    while ((i > 0) && (idx[i] >= n - k + 1 + i)) {
+        --i;
+        ++idx[i];
+    }
+    if (idx[0] > n - k) {
+        return false;
+    }
+    for (i = i + 1; i < k; ++i) {
+        idx[i] = idx[i - 1] + 1;
+    }
+    return true;
+}
+
+template<typename clazz>
+clazz *CenterSelection(const clazz *points, int point_num, int k) {
+    auto result = new clazz[k * 2];
+    int *idx = new int[k];
+    for (int i = 0; i < k; ++i) {
+        idx[i] = i;
+    }
+    float min_dist = std::numeric_limits<float>::max();
+    auto min_dist_vec = new float[point_num];
+    clazz px, py;
+    do {
+        std::fill(min_dist_vec, min_dist_vec + point_num, std::numeric_limits<float>::max());
+        for (int i = 0; i < k; ++i) {
+            min_dist_vec[idx[i]] = 0;
+            px = points[idx[i] * 2];
+            py = points[idx[i] * 2 + 1];
+            float dx, dy, dist;
+            for (int j = 0; j < point_num; ++j) {
+                if (j == idx[i]) {
+                    continue;
+                }
+                dx = float(px - points[j * 2]);
+                dy = float(py - points[j * 2 + 1]);
+                dist = dx * dx + dy * dy;
+                if (dist < min_dist_vec[j]) {
+                    min_dist_vec[j] = dist;
+                }
+            }
+        }
+        float max_local_dist = *std::max_element(min_dist_vec, min_dist_vec + point_num);
+        if (max_local_dist < min_dist) {
+            min_dist = max_local_dist;
+            for (int i = 0; i < k; ++i) {
+                result[i * 2] = points[idx[i] * 2];
+                result[i * 2 + 1] = points[idx[i] * 2 + 1];
+            }
+        }
+    } while (next_combination(idx, point_num, k));
+    delete[] idx;
+    delete[] min_dist_vec;
+    return result;
+}
+
+extern "C" int *CenterSelectionInt(const int *points, int point_num, int k) {
+    return CenterSelection(points, point_num, k);
+}
+
+extern "C" float *CenterSelectionFloat(const float *points, int point_num, int k) {
+    return CenterSelection(points, point_num, k);
+}
