@@ -5,6 +5,7 @@ from functools import partial
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
+from sklearn.metrics import pairwise_distances_argmin_min
 
 import algorithms.simple_pso as pso
 from algorithms import center_selection_dist, center_selection_int, center_selection_float
@@ -295,6 +296,45 @@ def task2_random_int() -> Tuple[np.ndarray, int]:
     return points, center_num
 
 
+def task3_init_select(points: np.ndarray, center_num: int | None) -> int:
+    """
+    Task 3
+
+    Parameters
+    ----------
+    points : np.ndarray
+        The points.
+    center_num : int | None
+        The center number. If None, will be treat as 1.
+
+    Returns
+    -------
+    int
+        The initial center idx.
+    """
+    center_num = 1 if center_num is None else center_num
+    kmeans = KMeans(n_clusters=center_num).fit(points)
+    label_count = np.bincount(kmeans.labels_)
+    best_center = kmeans.cluster_centers_[np.argmax(label_count)]
+    closest, _ = pairwise_distances_argmin_min(best_center.reshape(1, -1), points)
+    return closest[0]
+
+
+def task3_random() -> Tuple[np.ndarray, int]:
+    """
+    Task 3. random generated points
+
+    Returns
+    -------
+    Tuple[np.ndarray, int]
+        The points and the center number.
+    """
+    points = np.random.rand(20, 2) * 10
+    points = points.astype(np.float32)
+    center_num = 4
+    return points, center_num
+
+
 def main_task1():
     points, center_num, opt_centers = task1_2_2()
     dist, centers = greedy_center_selection(points, center_num)
@@ -455,5 +495,36 @@ def main_task2_rand_pso(epoch=200):
     print(pts)
 
 
+def main_task3(n_veal=200):
+    ratio_best = []
+    ratio_worst = []
+    random_ratio_best = []
+    random_ratio_worst = []
+    for i in range(n_veal):
+        print(f'Epoch {i + 1}/{n_veal}')
+        points, center_num = task3_random()
+        init_idx = task3_init_select(points, center_num)
+        init_dist, _ = greedy_center_selection(points, center_num, init_idx)
+        random_init_idx = np.random.randint(0, points.shape[0])
+        random_init_dist, _ = greedy_center_selection(points, center_num, random_init_idx)
+        worst_dist = 0
+        best_dist = np.inf
+        for j in range(points.shape[0]):
+            dist, _ = greedy_center_selection(points, center_num, j)
+            if dist > worst_dist:
+                worst_dist = dist
+            if dist < best_dist:
+                best_dist = dist
+        ratio_best.append(init_dist / best_dist)
+        ratio_worst.append(init_dist / worst_dist)
+        random_ratio_best.append(random_init_dist / best_dist)
+        random_ratio_worst.append(random_init_dist / worst_dist)
+
+    print(f'Best: {np.mean(ratio_best):.2f} ± {np.std(ratio_best):.2f}')
+    print(f'Worst: {np.mean(ratio_worst):.2f} ± {np.std(ratio_worst):.2f}')
+    print(f'Random Best: {np.mean(random_ratio_best):.2f} ± {np.std(random_ratio_best):.2f}')
+    print(f'Random Worst: {np.mean(random_ratio_worst):.2f} ± {np.std(random_ratio_worst):.2f}')
+
+
 if __name__ == '__main__':
-    main_task2()
+    main_task3(1000)
