@@ -1,4 +1,4 @@
-from typing import Tuple, List
+from typing import Tuple, List, Any
 from math import sqrt
 from functools import partial
 
@@ -106,12 +106,15 @@ def pso_optimize(points: np.ndarray, center_num: int, init: List[np.ndarray], ve
 
 
 def draw_points(points: np.ndarray, centers: np.ndarray,
-                points_color: str = 'b', center_color: str = 'r', off_pointer_color: str = '#00ff00') -> None:
+                points_color: str = 'b', center_color: str = 'r',
+                off_pointer_color: str = '#00ff00',
+                fig: Any | None = None, show: bool = True) -> Any | None:
     """
     Draw the points and centers.
 
     Parameters
     ----------
+    show
     points : np.ndarray
         The points to be drawn.
     centers : np.ndarray
@@ -122,33 +125,44 @@ def draw_points(points: np.ndarray, centers: np.ndarray,
         The color of the centers that is on the point.
     off_pointer_color : str
         The color of the centers that is not the point.
+    fig : Any | None = None
+        The figure to draw on, if None, use plt directly.
+    show : bool
+        Whether to show the figure.
 
     Returns
     -------
-    None
+    the figure if fig is None, else None
     """
+    if fig is None:
+        fig = plt
+
     def in_points(center: np.ndarray) -> bool:
         for i in range(points.shape[0]):
-            if np.array_equal(center, points[i]):
+            if np.allclose(center, points[i], atol=1e-7):
                 return True
         return False
 
-    plt.scatter(points[:, 0], points[:, 1], c=points_color)
+    fig.scatter(points[:, 0], points[:, 1], c=points_color)
     on_point_centers = [center for center in centers if in_points(center)]
     off_point_centers = [center for center in centers if not in_points(center)]
     on_point_centers = np.array(on_point_centers)
     off_point_centers = np.array(off_point_centers)
     legend = ['Points']
     if on_point_centers.shape[0] > 0:
-        plt.scatter(on_point_centers[:, 0], on_point_centers[:, 1], c=center_color)
+        fig.scatter(on_point_centers[:, 0], on_point_centers[:, 1], c=center_color)
         legend.append('On-point Centers')
     if off_point_centers.shape[0] > 0:
-        plt.scatter(off_point_centers[:, 0], off_point_centers[:, 1], c=off_pointer_color)
+        fig.scatter(off_point_centers[:, 0], off_point_centers[:, 1], c=off_pointer_color)
         legend.append('Off-point Centers')
-    plt.axis('equal')
+    fig.axis('equal')
     # plt.grid()
-    plt.legend(legend)
-    plt.show()
+    fig.legend(legend)
+    if show:
+        fig.show()
+    if fig is plt:
+        return None
+    return fig
 
 
 def task1_1_1() -> Tuple[np.ndarray, int, np.ndarray]:
@@ -406,7 +420,7 @@ def main_task2():
     print(f'Greedy: {g_dist:.2f}')
     draw_points(points, centers)
     dist, centers = center_selection_fn(points, center_num)
-    print(f'PSO: {center_selection_dist(points, centers):.2f}')
+    print(f'Best: {center_selection_dist(points, centers):.2f}')
     draw_points(points, centers)
     print(f'Ratio: {g_dist / dist:.2f}')
 
