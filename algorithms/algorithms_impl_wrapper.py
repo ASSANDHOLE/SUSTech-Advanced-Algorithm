@@ -320,9 +320,9 @@ def load_balancing_diff_exec_time_float(jobs: np.ndarray, worker_num: int) -> Tu
     return res_arr, max_time
 
 
-def center_selection_dist(points: np.ndarray, centers: np.ndarray) -> float:
+def center_selection_dist(points: np.ndarray, centers: np.ndarray | List[np.ndarray]) -> float:
     dist = np.linalg.norm(points - centers[0], axis=1)
-    for i in range(1, centers.shape[0]):
+    for i in range(1, len(centers)):
         dist = np.minimum(dist, np.linalg.norm(points - centers[i], axis=1))
     return np.max(dist)
 
