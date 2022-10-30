@@ -4,7 +4,7 @@ if [ -d build ]; then
 fi
 mkdir build
 cd build || exit 1
-cmake ..
+cmake .. -DCMAKE_BUILD_TYPE=Release -DUSE_OMP=1
 make
 cd ..
 cp build/libalgo_cpp_impl.so ../algorithms

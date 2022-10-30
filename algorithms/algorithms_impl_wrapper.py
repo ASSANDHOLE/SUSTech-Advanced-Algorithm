@@ -3,7 +3,7 @@ import sys
 
 from ctypes import *
 from struct import pack, unpack
-from typing import Tuple, List
+from typing import Tuple, List, Literal
 
 import numpy as np
 from numpy.ctypeslib import ndpointer, as_array
@@ -17,7 +17,7 @@ def _get_dll_name():
     else:
         # Your system's dll name
         # dll_name = None
-        raise NotImplementedError(f'Your system is not supported: {sys.platform}')
+        raise NotImplementedError(f'Your system is not registered: {sys.platform}')
     return dll_name
 
 
@@ -88,6 +88,54 @@ def _c_center_selection_float():
     return cs
 
 
+def _c_kmeans_2d_int():
+    kmeans = _lib.KMeans2dInt
+    kmeans.restype = POINTER(c_float)
+    kmeans.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                       c_int, c_int, c_int, c_float, c_int]
+    return kmeans
+
+
+def _c_kmeans_2d_float():
+    kmeans = _lib.KMeans2dFloat
+    kmeans.restype = POINTER(c_float)
+    kmeans.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
+                       c_int, c_int, c_int, c_float, c_int]
+    return kmeans
+
+
+def _c_kmedoids_2d_int():
+    kmedoids = _lib.KMedoids2dInt
+    kmedoids.restype = POINTER(c_int)
+    kmedoids.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                         c_int, c_int, c_int, c_int]
+    return kmedoids
+
+
+def _c_kmedoids_2d_float():
+    kmedoids = _lib.KMedoids2dFloat
+    kmedoids.restype = POINTER(c_int)
+    kmedoids.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
+                         c_int, c_int, c_int, c_int]
+    return kmedoids
+
+
+def _c_fuzzy_c_means_2d_int():
+    fcm = _lib.FuzzyCMeans2dInt
+    fcm.restype = POINTER(c_float)
+    fcm.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                    c_int, c_int, c_float, c_int, c_float, c_int]
+    return fcm
+
+
+def _c_fuzzy_c_means_2d_float():
+    fcm = _lib.FuzzyCMeans2dFloat
+    fcm.restype = POINTER(c_float)
+    fcm.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
+                    c_int, c_int, c_float, c_int, c_float, c_int]
+    return fcm
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
@@ -97,6 +145,12 @@ _load_balancing_diff_exec_time_int = _c_load_balancing_diff_exec_time_int()
 _load_balancing_diff_exec_time_float = _c_load_balancing_diff_exec_time_float()
 _center_selection_int = _c_center_selection_int()
 _center_selection_float = _c_center_selection_float()
+_kmeans_2d_int = _c_kmeans_2d_int()
+_kmeans_2d_float = _c_kmeans_2d_float()
+_kmedoids_2d_int = _c_kmedoids_2d_int()
+_kmedoids_2d_float = _c_kmedoids_2d_float()
+_fuzzy_c_means_2d_int = _c_fuzzy_c_means_2d_int()
+_fuzzy_c_means_2d_float = _c_fuzzy_c_means_2d_float()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -177,7 +231,8 @@ def _load_balancing_greedy_helper(jobs: np.ndarray, worker_num: int) -> Tuple[Li
     return job_arr, np.max(value_arr)
 
 
-def load_balancing_greedy_int(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[List[List[int]], int], Tuple[List[List[int]], int], float]:
+def load_balancing_greedy_int(jobs: np.ndarray, worker_num: int) -> Tuple[
+    Tuple[List[List[int]], int], Tuple[List[List[int]], int], float]:
     """
     Parameters
     ----------
@@ -232,7 +287,8 @@ def load_balancing_float(jobs: np.ndarray, worker_num: int) -> Tuple[List[List[f
     return res_arr, max_time
 
 
-def load_balancing_greedy_float(jobs: np.ndarray, worker_num: int) -> Tuple[Tuple[List[List[float]], float], Tuple[List[List[float]], float], float]:
+def load_balancing_greedy_float(jobs: np.ndarray, worker_num: int) -> Tuple[
+    Tuple[List[List[float]], float], Tuple[List[List[float]], float], float]:
     """
     Parameters
     ----------
@@ -272,7 +328,7 @@ def load_balancing_diff_exec_time_int(jobs: np.ndarray, worker_num: int) -> Tupl
     """
     jobs = jobs.astype(np.int32).flatten('C')
     res = _load_balancing_diff_exec_time_int(jobs, len(jobs), worker_num)
-    res = as_array(res, shape=(2*worker_num + len(jobs),))
+    res = as_array(res, shape=(2 * worker_num + len(jobs),))
     res_arr = [[] for _ in range(worker_num)]
     start = worker_num
     max_time = 0
@@ -303,7 +359,7 @@ def load_balancing_diff_exec_time_float(jobs: np.ndarray, worker_num: int) -> Tu
     """
     jobs = jobs.astype(np.float32).flatten('C')
     res = _load_balancing_diff_exec_time_float(jobs, len(jobs), worker_num)
-    res = as_array(res, shape=(2*worker_num + len(jobs),))
+    res = as_array(res, shape=(2 * worker_num + len(jobs),))
     res_arr = [[] for _ in range(worker_num)]
     start = worker_num
     max_time = 0
@@ -314,8 +370,8 @@ def load_balancing_diff_exec_time_float(jobs: np.ndarray, worker_num: int) -> Tu
         start = end
     worker_order = res[start:]
     # sort the res_arr according to the worker_order
-    pk = pack('f'*len(worker_order), *worker_order)
-    worker_order = list(unpack('i'*len(worker_order), pk))
+    pk = pack('f' * len(worker_order), *worker_order)
+    worker_order = list(unpack('i' * len(worker_order), pk))
     res_arr = [res_arr[i] for i in np.argsort(worker_order)]
     return res_arr, max_time
 
@@ -367,3 +423,280 @@ def center_selection_float(points: np.ndarray, center_num: int) -> Tuple[float, 
     res = as_array(res, shape=(center_num, 2))
     dist = center_selection_dist(points, res)
     return dist, res
+
+
+__KMEANS_INIT_FN_NAME_ID_MAP = {
+    'random': 0,
+    'kmeans++': 1,
+}
+
+
+def _kmeans_get_labels(points: np.ndarray, centers: np.ndarray) -> np.ndarray:
+    if points.dtype != np.float32:
+        points = points.astype(np.float32)
+    dist = np.linalg.norm(points - centers[0], axis=1)
+    labels = np.zeros(len(points), dtype=np.int32)
+    for i in range(1, len(centers)):
+        dist_new = np.linalg.norm(points - centers[i], axis=1)
+        labels[dist_new < dist] = i
+        dist = np.minimum(dist, dist_new)
+    return labels
+
+
+def kmeans_2d_int(points: np.ndarray, k: int,
+                  init_fn: Literal['kmeans++', 'random'] = 'kmeans++',
+                  eps: float = 1e-6, max_iter: int = 100
+                  ) -> Tuple[np.ndarray, np.ndarray, int, bool]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to cluster.
+    k : int
+        The number of clusters.
+    init_fn : Literal['kmeans++', 'random']
+        The initialization function.
+    eps : float
+        The convergence threshold.
+    max_iter : int
+        The maximum number of iterations.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, int, bool]
+        The cluster centers, the cluster labels,
+         the number of iterations, and whether the algorithm converged.
+    """
+
+    points = points.astype(np.int32)
+    init_fn_id = __KMEANS_INIT_FN_NAME_ID_MAP[init_fn]
+    res = _kmeans_2d_int(points, points.shape[0], k, init_fn_id, eps, max_iter)
+    res = as_array(res, shape=(k * 2 + 2,))
+    centers = res[:k * 2].reshape((k, 2))
+    labels = _kmeans_get_labels(points, centers)
+    n_iter = res[-2]
+    n_iter = pack('f', n_iter)
+    n_iter = unpack('i', n_iter)[0]
+    converged = not (abs(res[-1]) < 0.001)
+    return centers, labels, n_iter, converged
+
+
+def kmeans_2d_float(points: np.ndarray, k: int,
+                    init_fn: Literal['kmeans++', 'random'] = 'kmeans++',
+                    eps: float = 1e-6, max_iter: int = 100
+                    ) -> Tuple[np.ndarray, np.ndarray, int, bool]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to cluster.
+    k : int
+        The number of clusters.
+    init_fn : Literal['kmeans++', 'random']
+        The initialization function.
+    eps : float
+        The convergence threshold.
+    max_iter : int
+        The maximum number of iterations.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, int, bool]
+        The cluster centers, the cluster labels,
+         the number of iterations, and whether the algorithm converged.
+    """
+
+    points = points.astype(np.float32)
+    init_fn_id = __KMEANS_INIT_FN_NAME_ID_MAP[init_fn]
+    res = _kmeans_2d_float(points, points.shape[0], k, init_fn_id, eps, max_iter)
+    res = as_array(res, shape=(k * 2 + 2,))
+    centers = res[:k * 2].reshape((k, 2))
+    labels = _kmeans_get_labels(points, centers)
+    n_iter = res[-2]
+    n_iter = pack('f', n_iter)
+    n_iter = unpack('i', n_iter)[0]
+    converged = not (abs(res[-1]) < 0.001)
+    return centers, labels, n_iter, converged
+
+
+def square_euclidian_dist(points: np.ndarray, centers: np.ndarray, labels: np.ndarray | None = None) -> np.ndarray:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to compute the distance.
+    centers : np.ndarray
+        The centers to compute the distance.
+    labels : np.ndarray | None = None
+        The labels of the points.
+
+    Returns
+    -------
+    np.ndarray
+        The square euclidian distance.
+    """
+    if points.dtype != np.float32:
+        points = points.astype(np.float32)
+    if centers.dtype != np.float32:
+        centers = centers.astype(np.float32)
+    if labels is None:
+        labels = _kmeans_get_labels(points, centers)
+    dist = np.linalg.norm(points - centers[labels], axis=1)
+    return dist * dist
+
+
+def _kmedoids_get_labels(points: np.ndarray, centers_idx: np.ndarray) -> np.ndarray:
+    if points.dtype != np.float32:
+        points = points.astype(np.float32)
+    centers = points[centers_idx]
+    return _kmeans_get_labels(points, centers)
+
+
+def kmedoids_2d_int(points: np.ndarray, k: int,
+                    init_fn: Literal['kmeans++', 'random'] = 'kmeans++',
+                    max_iter: int = 100
+                    ) -> Tuple[np.ndarray, np.ndarray, int, bool]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to cluster.
+    k : int
+        The number of clusters.
+    init_fn : Literal['kmeans++', 'random']
+        The initialization function.
+    max_iter : int
+        The maximum number of iterations.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, int, bool]
+        The cluster center idx, the cluster labels,
+         the number of iterations, and whether the algorithm converged.
+    """
+
+    points = points.astype(np.int32)
+    init_fn_id = __KMEANS_INIT_FN_NAME_ID_MAP[init_fn]
+    res = _kmedoids_2d_int(points, points.shape[0], k, init_fn_id, max_iter)
+    res = as_array(res, shape=(k + 2,))
+    centers_idx = res[:k]
+    labels = _kmedoids_get_labels(points, centers_idx)
+    n_iter = res[-2]
+    converged = res[-1] != 0
+    return centers_idx, labels, n_iter, converged
+
+
+def kmedoids_2d_float(points: np.ndarray, k: int,
+                      init_fn: Literal['kmeans++', 'random'] = 'kmeans++',
+                      max_iter: int = 100
+                      ) -> Tuple[np.ndarray, np.ndarray, int, bool]:
+    """
+        Parameters
+        ----------
+        points : np.ndarray
+            The points to cluster.
+        k : int
+            The number of clusters.
+        init_fn : Literal['kmeans++', 'random']
+            The initialization function.
+        max_iter : int
+            The maximum number of iterations.
+
+        Returns
+        -------
+        Tuple[np.ndarray, np.ndarray, int, bool]
+            The cluster center idx, the cluster labels,
+             the number of iterations, and whether the algorithm converged.
+        """
+
+    points = points.astype(np.float32)
+    init_fn_id = __KMEANS_INIT_FN_NAME_ID_MAP[init_fn]
+    res = _kmedoids_2d_float(points, points.shape[0], k, init_fn_id, max_iter)
+    res = as_array(res, shape=(k + 2,))
+    centers_idx = res[:k]
+    labels = _kmedoids_get_labels(points, centers_idx)
+    n_iter = res[-2]
+    converged = res[-1] != 0
+    return centers_idx, labels, n_iter, converged
+
+
+def fuzzy_c_means_2d_int(points: np.ndarray, k: int,
+                         m: float = 2.0,
+                         init_fn: Literal['kmeans++', 'random'] = 'kmeans++',
+                         eps: float = 1e-6, max_iter: int = 100
+                         ) -> Tuple[np.ndarray, np.ndarray, int, bool]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to cluster.
+    k : int
+        The number of clusters.
+    m : float
+        The fuzziness.
+    init_fn : Literal['kmeans++', 'random']
+        The initialization function.
+    eps : float
+        The convergence threshold.
+    max_iter : int
+        The maximum number of iterations.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, int, bool]
+        The cluster centers, the membership matrix,
+         the number of iterations, and whether the algorithm converged.
+    """
+
+    points = points.astype(np.int32)
+    init_fn_id = __KMEANS_INIT_FN_NAME_ID_MAP[init_fn]
+    res = _fuzzy_c_means_2d_int(points, points.shape[0], k, m, init_fn_id, eps, max_iter)
+    res = as_array(res, shape=(k * 2 + points.shape[0] * k + 2,))
+    centers = res[:k * 2].reshape((k, 2))
+    membership_matrix = res[k * 2:-2].reshape((points.shape[0], k))
+    n_iter = res[-2]
+    n_iter = pack('f', n_iter)
+    n_iter = unpack('i', n_iter)[0]
+    converged = not (abs(res[-1]) < 0.001)
+    return centers, membership_matrix, n_iter, converged
+
+
+def fuzzy_c_means_2d_float(points: np.ndarray, k: int,
+                           m: float = 2.0,
+                           init_fn: Literal['kmeans++', 'random'] = 'kmeans++',
+                           eps: float = 1e-6, max_iter: int = 100
+                           ) -> Tuple[np.ndarray, np.ndarray, int, bool]:
+    """
+    Parameters
+    ----------
+    points : np.ndarray
+        The points to cluster.
+    k : int
+        The number of clusters.
+    m : float
+        The fuzziness.
+    init_fn : Literal['kmeans++', 'random']
+        The initialization function.
+    eps : float
+        The convergence threshold.
+    max_iter : int
+        The maximum number of iterations.
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, int, bool]
+        The cluster centers, the membership matrix,
+         the number of iterations, and whether the algorithm converged.
+    """
+
+    points = points.astype(np.float32)
+    init_fn_id = __KMEANS_INIT_FN_NAME_ID_MAP[init_fn]
+    res = _fuzzy_c_means_2d_float(points, points.shape[0], k, m, init_fn_id, eps, max_iter)
+    res = as_array(res, shape=(k * 2 + points.shape[0] * k + 2,))
+    centers = res[:k * 2].reshape((k, 2))
+    membership_matrix = res[k * 2:-2].reshape((points.shape[0], k))
+    n_iter = res[-2]
+    n_iter = pack('f', n_iter)
+    n_iter = unpack('i', n_iter)[0]
+    converged = not (abs(res[-1]) < 0.001)
+    return centers, membership_matrix, n_iter, converged
