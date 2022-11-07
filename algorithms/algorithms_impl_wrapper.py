@@ -136,6 +136,28 @@ def _c_fuzzy_c_means_2d_float():
     return fcm
 
 
+def _c_set_cover_int():
+    sc = _lib.SetCoverInt
+    sc.restype = POINTER(c_int)
+    sc.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   c_int]
+    return sc
+
+
+def _c_set_cover_float():
+    sc = _lib.SetCoverFloat
+    sc.restype = POINTER(c_float)
+    sc.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
+                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+                   c_int]
+    return sc
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
@@ -151,6 +173,8 @@ _kmedoids_2d_int = _c_kmedoids_2d_int()
 _kmedoids_2d_float = _c_kmedoids_2d_float()
 _fuzzy_c_means_2d_int = _c_fuzzy_c_means_2d_int()
 _fuzzy_c_means_2d_float = _c_fuzzy_c_means_2d_float()
+_set_cover_int = _c_set_cover_int()
+_set_cover_float = _c_set_cover_float()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -700,3 +724,62 @@ def fuzzy_c_means_2d_float(points: np.ndarray, k: int,
     n_iter = unpack('i', n_iter)[0]
     converged = not (abs(res[-1]) < 0.001)
     return centers, membership_matrix, n_iter, converged
+
+
+def set_cover_int(subsets: List[List[int]], weights: List[int] | np.ndarray) -> Tuple[List[int], int]:
+    """
+    Parameters
+    ----------
+    subsets : List[List[int]]
+        The subsets.
+    weights : List[int] | np.ndarray
+        The weights.
+
+    Returns
+    -------
+    Tuple[List[int], int]
+        The used subset indices, the total weight
+    """
+
+    flat_subsets = []
+    for subset in subsets:
+        flat_subsets.extend(subset)
+    flat_subsets = np.array(flat_subsets, dtype=np.int32)
+    subset_lens = np.array([len(subset) for subset in subsets], dtype=np.int32)
+    order = np.zeros_like(subset_lens).astype(np.int32)
+    weights = np.array(weights, dtype=np.int32)
+    res = _set_cover_int(flat_subsets, subset_lens, weights, order, len(subsets))
+    res = as_array(res, shape=(2,))
+    total_weight = res[0]
+    n_subsets_used = res[1]
+    return order[:n_subsets_used].tolist(), total_weight
+
+
+def set_cover_float(subsets: List[List[int]], weights: List[float] | np.ndarray) -> Tuple[List[int], float]:
+    """
+    Parameters
+    ----------
+    subsets : List[List[int]]
+        The subsets.
+    weights : List[float] | np.ndarray
+        The weights.
+
+    Returns
+    -------
+    Tuple[List[int], float]
+        The used subset indices, the total weight
+    """
+    flat_subsets = []
+    for subset in subsets:
+        flat_subsets.extend(subset)
+    flat_subsets = np.array(flat_subsets, dtype=np.int32)
+    subset_lens = np.array([len(subset) for subset in subsets], dtype=np.int32)
+    order = np.zeros_like(subset_lens).astype(np.int32)
+    weights = np.array(weights, dtype=np.float32)
+    res = _set_cover_float(flat_subsets, subset_lens, weights, order, len(subsets))
+    res = as_array(res, shape=(2,))
+    total_weight = res[0]
+    n_subsets_used = res[1]
+    n_subsets_used = pack('f', n_subsets_used)
+    n_subsets_used = unpack('i', n_subsets_used)[0]
+    return order[:n_subsets_used].tolist(), total_weight

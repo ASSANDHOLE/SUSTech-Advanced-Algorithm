@@ -4,6 +4,7 @@
 #include <limits>
 #include <iostream>
 #include <random>
+#include <set>
 
 template <typename iter_type, typename val_type>
 bool next_assignment(iter_type start, iter_type end, val_type n) {
@@ -687,4 +688,66 @@ extern "C" float *FuzzyCMeans2dInt(const int *points, int pts_num, int k, float 
 extern "C" float *FuzzyCMeans2dFloat(const float *points, int pts_num, int k, float m, int init_func, float eps, int max_iter) {
     auto init_func_ptr = FuzzyCMeansInitMethodSelector<float>(init_func);
     return FuzzyCMeans2d<float>(points, pts_num, k, m, init_func_ptr, eps, max_iter);
+}
+
+template<typename clazz>
+clazz *SetCover(const int *subsets, const int *subset_lens, const clazz *subset_weights, int *order, int subset_len_len) {
+    static_assert(sizeof(clazz) >= sizeof(int), "clazz must be at least as big as int32");
+    auto ret = new clazz[2];
+    std::set<int> all_elements;
+    int total_len = std::accumulate(subset_lens, subset_lens + subset_len_len, 0);
+    for (int i = 0; i < total_len; ++i) {
+        all_elements.insert(subsets[i]);
+    }
+    int num_elements = int(all_elements.size());
+    char *covered = new char[num_elements];
+    std::fill(covered, covered + num_elements, char(0));
+    std::vector<int> cur_order;
+    std::vector<std::vector<int>> ordered_subsets;
+    ordered_subsets.reserve(subset_len_len);
+    int *start = const_cast<int *>(subsets);
+    for (int i = 0; i < subset_len_len; ++i) {
+        ordered_subsets.emplace_back(start, start + subset_lens[i]);
+        start += subset_lens[i];
+    }
+    cur_order.reserve(subset_len_len);
+    for (int i = 0; i < subset_len_len; ++i) {
+        cur_order.push_back(i);
+    }
+    clazz min_cost = std::numeric_limits<clazz>::max();
+    do {
+        std::fill(covered, covered + num_elements, char(0));
+        clazz cur_weight = 0.0f;
+        int end = subset_len_len;
+        for (int i = 0; i < subset_len_len; ++i) {
+            if (std::accumulate(covered, covered + num_elements, 0) == num_elements) {
+                end = i;
+                break;
+            }
+            auto &subset = ordered_subsets[cur_order[i]];
+            for (const auto & element : subset) {
+                if (covered[element] == 0) {
+                    covered[element] = 1;
+                }
+            }
+            cur_weight += subset_weights[cur_order[i]];
+        }
+        std::reverse(cur_order.begin() + end, cur_order.end());
+        if (cur_weight < min_cost) {
+            min_cost = cur_weight;
+            ret[0] = min_cost;
+            ret[1] = *reinterpret_cast<clazz *>(&end);
+            std::copy(cur_order.begin(), cur_order.end(), order);
+        }
+    } while (std::next_permutation(cur_order.begin(), cur_order.end()));
+    delete [] covered;
+    return ret;
+}
+
+extern "C" int *SetCoverInt(const int *subsets, const int *subset_lens, const int *subset_weights, int *order, int subset_len_len) {
+    return SetCover<int>(subsets, subset_lens, subset_weights, order, subset_len_len);
+}
+
+extern "C" float *SetCoverFloat(const int *subsets, const int *subset_lens, const float *subset_weights, int *order, int subset_len_len) {
+    return SetCover<float>(subsets, subset_lens, subset_weights, order, subset_len_len);
 }

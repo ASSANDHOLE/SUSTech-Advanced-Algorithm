@@ -1,29 +1,25 @@
 #include "library.cpp"
 
+template <typename T>
+void PrintVector(const std::vector<T>& v) {
+    for (const auto & i : v) {
+        std::cout << i << " ";
+    }
+    std::cout << std::endl;
+}
+
 int main() {
 #ifdef OMP_ENABLED
     std::cout << "OMP enabled" << std::endl;
 #else
     std::cout << "OMP disabled" << std::endl;
 #endif
-    float points[] = {
-            0, 0,
-            2, 3,
-            7, 8,
-            2, 6,
-            4, 4,
-            3, 3,
-            8, 1,
-            2, 5,
-            10, 0,
-            3, 8
-    };
-    int pts_num = sizeof(points) / sizeof(float) / 2;
-    int k = 2;
-    float m = 2;
-    int init_func = 1;
-    float eps = 1e-6;
-    int max_iter = 1000;
-    float *centers = FuzzyCMeans2dFloat(points, pts_num, k, m, init_func, eps, max_iter);
-    printf("retrun 0, 1, 2, 3: %f, %f, %f, %f", centers[0], centers[1], centers[2], centers[3]);
+    int subsets[] = {0, 1, 2, 0, 3, 1, 2};
+    int subset_len[] = {2, 1, 2, 2};
+    int subset_len_len = sizeof(subset_len) / sizeof(subset_len[0]);
+    int *order = new int[subset_len_len];
+    int weight[] = {4, 4, 8, 6};
+    auto ret = SetCoverInt(subsets, subset_len, weight, order, subset_len_len);
+    PrintVector(std::vector<int>(ret, ret + 2));
+    PrintVector(std::vector<int>(order, order + subset_len_len));
 }
