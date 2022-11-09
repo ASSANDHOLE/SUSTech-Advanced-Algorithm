@@ -3,17 +3,19 @@ import sys
 
 from ctypes import *
 from struct import pack, unpack
-from typing import Tuple, List, Literal
+from typing import Tuple, List, Literal, Type
 
 import numpy as np
-from numpy.ctypeslib import ndpointer, as_array
+from numpy.ctypeslib import ndpointer as numpy_nd_ptr
+from numpy.ctypeslib import as_array
 
 
 def _get_dll_name():
+    base_name = 'libalgo_cpp_impl'
     if sys.platform == 'linux':
-        dll_name = 'libalgo_cpp_impl.so'
+        dll_name = f'{base_name}.so'
     elif sys.platform == 'win32':
-        dll_name = 'libalgo_cpp_impl.dll'
+        dll_name = f'{base_name}.dll'
     else:
         # Your system's dll name
         # dll_name = None
@@ -24,82 +26,91 @@ def _get_dll_name():
 _dll_name = _get_dll_name()
 _lib = cdll.LoadLibrary(os.path.join(os.path.dirname(__file__), _dll_name))
 
+i32 = np.int32
+f32 = np.float32
+
+
+def nd_ptr(data_type: Type):
+    return numpy_nd_ptr(dtype=data_type, flags='aligned, c_contiguous')
+
 
 def _c_tsp_naive():
     tspn = _lib.TravellingSalesmanNaive
     tspn.restype = POINTER(c_int)
-    tspn.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int]
+    tspn.argtypes = [nd_ptr(f32), c_int]
     return tspn
 
 
 def _c_load_balancing_int():
     lb = _lib.LoadBalancingInt
     lb.restype = POINTER(c_int)
-    lb.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'), c_int, c_int]
+    lb.argtypes = [nd_ptr(i32), c_int, c_int]
     return lb
 
 
 def _c_load_balancing_greedy_int():
     lb = _lib.LoadBalancingGreedyInt
     lb.restype = POINTER(c_int)
-    lb.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'), c_int, c_int]
+    lb.argtypes = [nd_ptr(i32), c_int, c_int]
     return lb
 
 
 def _c_load_balancing_float():
     lb = _lib.LoadBalancingFloat
     lb.restype = POINTER(c_float)
-    lb.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int, c_int]
+    lb.argtypes = [nd_ptr(f32), c_int, c_int]
     return lb
 
 
 def _c_load_balancing_greedy_float():
     lb = _lib.LoadBalancingGreedyFloat
     lb.restype = POINTER(c_float)
-    lb.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int, c_int]
+    lb.argtypes = [nd_ptr(f32), c_int, c_int]
     return lb
 
 
 def _c_load_balancing_diff_exec_time_int():
     lb = _lib.LoadBalancingDifferentExecTimeInt
     lb.restype = POINTER(c_int)
-    lb.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'), c_int, c_int]
+    lb.argtypes = [nd_ptr(i32), c_int, c_int]
     return lb
 
 
 def _c_load_balancing_diff_exec_time_float():
     lb = _lib.LoadBalancingDifferentExecTimeFloat
     lb.restype = POINTER(c_float)
-    lb.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int, c_int]
+    lb.argtypes = [nd_ptr(f32), c_int, c_int]
     return lb
 
 
 def _c_center_selection_int():
     cs = _lib.CenterSelectionInt
     cs.restype = POINTER(c_int)
-    cs.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'), c_int, c_int]
+    cs.argtypes = [nd_ptr(i32), c_int, c_int]
     return cs
 
 
 def _c_center_selection_float():
     cs = _lib.CenterSelectionFloat
     cs.restype = POINTER(c_float)
-    cs.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'), c_int, c_int]
+    cs.argtypes = [nd_ptr(f32), c_int, c_int]
     return cs
 
 
 def _c_kmeans_2d_int():
     kmeans = _lib.KMeans2dInt
     kmeans.restype = POINTER(c_float)
-    kmeans.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                       c_int, c_int, c_int, c_float, c_int]
+    kmeans.argtypes = [nd_ptr(i32),
+                       c_int, c_int,
+                       c_int, c_float,
+                       c_int]
     return kmeans
 
 
 def _c_kmeans_2d_float():
     kmeans = _lib.KMeans2dFloat
     kmeans.restype = POINTER(c_float)
-    kmeans.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
+    kmeans.argtypes = [nd_ptr(f32),
                        c_int, c_int, c_int, c_float, c_int]
     return kmeans
 
@@ -107,42 +118,48 @@ def _c_kmeans_2d_float():
 def _c_kmedoids_2d_int():
     kmedoids = _lib.KMedoids2dInt
     kmedoids.restype = POINTER(c_int)
-    kmedoids.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                         c_int, c_int, c_int, c_int]
+    kmedoids.argtypes = [nd_ptr(i32),
+                         c_int, c_int,
+                         c_int, c_int]
     return kmedoids
 
 
 def _c_kmedoids_2d_float():
     kmedoids = _lib.KMedoids2dFloat
     kmedoids.restype = POINTER(c_int)
-    kmedoids.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
-                         c_int, c_int, c_int, c_int]
+    kmedoids.argtypes = [nd_ptr(f32),
+                         c_int, c_int,
+                         c_int, c_int]
     return kmedoids
 
 
 def _c_fuzzy_c_means_2d_int():
     fcm = _lib.FuzzyCMeans2dInt
     fcm.restype = POINTER(c_float)
-    fcm.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                    c_int, c_int, c_float, c_int, c_float, c_int]
+    fcm.argtypes = [nd_ptr(i32),
+                    c_int, c_int,
+                    c_float, c_int,
+                    c_float, c_int]
     return fcm
 
 
 def _c_fuzzy_c_means_2d_float():
     fcm = _lib.FuzzyCMeans2dFloat
     fcm.restype = POINTER(c_float)
-    fcm.argtypes = [ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
-                    c_int, c_int, c_float, c_int, c_float, c_int]
+    fcm.argtypes = [nd_ptr(f32),
+                    c_int, c_int,
+                    c_float, c_int,
+                    c_float, c_int]
     return fcm
 
 
 def _c_set_cover_int():
     sc = _lib.SetCoverInt
     sc.restype = POINTER(c_int)
-    sc.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+    sc.argtypes = [nd_ptr(i32),
+                   nd_ptr(i32),
+                   nd_ptr(i32),
+                   nd_ptr(i32),
                    c_int]
     return sc
 
@@ -150,10 +167,10 @@ def _c_set_cover_int():
 def _c_set_cover_float():
     sc = _lib.SetCoverFloat
     sc.restype = POINTER(c_float)
-    sc.argtypes = [ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
-                   ndpointer(dtype=np.float32, flags='aligned, c_contiguous'),
-                   ndpointer(dtype=np.int32, flags='aligned, c_contiguous'),
+    sc.argtypes = [nd_ptr(i32),
+                   nd_ptr(i32),
+                   nd_ptr(f32),
+                   nd_ptr(i32),
                    c_int]
     return sc
 
