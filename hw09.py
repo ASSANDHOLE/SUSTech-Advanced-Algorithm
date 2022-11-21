@@ -126,8 +126,8 @@ def graph_cover_greedy(data: List[List[int]] | np.ndarray,
     node_done = np.zeros_like(nodes, dtype=bool)
     edge_done = np.zeros(len(data), dtype=bool)
     while not all(edge_done):
-        for i in range(len(edge_done)):
-            if edge_done[i]:
+        for i, ed in enumerate(edge_done):
+            if ed:
                 continue
             edge_done[i] = True
             if node_done[data[i][0]] or node_done[data[i][1]]:
