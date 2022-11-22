@@ -1,0 +1,4 @@
+dependencies/*
+# exclude the readme in dependencies
+!dependencies/readme.md
+tmp/

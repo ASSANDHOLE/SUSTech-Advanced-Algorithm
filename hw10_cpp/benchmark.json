@@ -1,0 +1,104 @@
+{
+    "platform": {
+        "CPU": "Intel 10900K 5.3GHz (Boost)",
+        "RAM": "32 GiB 4266 MHz DDR4 (XMP-2.0)"
+    },
+    "solvers": [
+        {
+            "name": "CBC",
+            "build": "or-tools_cpp_Ubuntu-22.04-64bit_v9.4.1874",
+            "env": "cpp_cmake_default_release",
+            "threading": "not_supported",
+            "performance": {
+                "small": [
+                    {
+                        "thread": 1,
+                        "ram": "?",
+                        "result": 10505.6,
+                        "time": "(1, 1, 1) ms"
+                    }
+                ],
+                "medium": [
+                    {
+                        "thread": 1,
+                        "ram": "499.5 MiB",
+                        "result": 1.09219e+07,
+                        "time": "(2471, 2508, 2583) ms"
+                    }
+                ],
+                "large": [
+                    {
+                        "thread": 1,
+                        "ram": "9.8 GiB",
+                        "result": 9.7718e+07,
+                        "time": "(115472, 114993, 114540) ms"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "SCIP",
+            "build": "or-tools_cpp_Ubuntu-22.04-64bit_v9.4.1874",
+            "env": "cpp_cmake_default_release",
+            "threading": "not_supported (multiple_solver_with_seed)",
+            "performance": {
+                "small": [
+                    {
+                        "thread": 1,
+                        "ram": "498.2 MiB",
+                        "result": 10505.6,
+                        "time": "(2, 2, 2) ms"
+                    }
+                ],
+                "medium": [
+                    {
+                        "thread": 1,
+                        "ram": "1.7 GiB Peak",
+                        "result": 1.09219e+07,
+                        "time": "(12489, 11947, 12069) ms"
+                    }
+                ],
+                "large": [
+                    {
+                        "thread": 1,
+                        "ram": "Killed (Maximum 22.2 GiB before killed)",
+                        "result": 9.7718e+07,
+                        "time": "N/A"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "GLOP",
+            "build": "or-tools_cpp_Ubuntu-22.04-64bit_v9.4.1874",
+            "env": "cpp_cmake_default_release",
+            "threading": "not_supported (multiple_solver_with_seed)",
+            "performance": {
+                "small": [
+                    {
+                        "thread": 1,
+                        "ram": "?",
+                        "result": 10505.6,
+                        "time": "(0, 0, 0) ms"
+                    }
+                ],
+                "medium": [
+                    {
+                        "thread": 1,
+                        "ram": "248.6 MiB",
+                        "result": 1.09219e+07,
+                        "time": "(1841, 1833, 1839) ms"
+                    }
+                ],
+                "large": [
+                    {
+                        "thread": 1,
+                        "ram": "9.5 GiB",
+                        "result": 9.7718e+07,
+                        "time": "(105879, 104609, 104958) ms"
+                    }
+                ]
+            }
+        }
+    ]
+}
