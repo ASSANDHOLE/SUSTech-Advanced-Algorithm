@@ -7,3 +7,4 @@ __pycache__/
 cmake-build-*/
 *.so
 .vscode/
+tmp/
