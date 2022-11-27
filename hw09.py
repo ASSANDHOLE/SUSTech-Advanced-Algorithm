@@ -52,7 +52,8 @@ def graph_set_convert(data: List[List[int]] | np.ndarray) -> List[List[int]]:
 def draw(data: List[List[int]] | np.ndarray,
          weights: List[int | float] | np.ndarray,
          colors: List[str] | str,
-         edge_color: str = 'red') -> None:
+         edge_color: str = 'red',
+         show: bool = True) -> None:
     """
     Draw the graph.
 
@@ -66,14 +67,16 @@ def draw(data: List[List[int]] | np.ndarray,
         The colors of the nodes. [color1, color2, ...] or color
     edge_color : str
         The color of the edges, by default 'red'
+    show : bool
+        Whether to show the graph, by default True
 
     """
     items = graph_set_convert(data)
 
     if type(weights[0]) not in (int, np.int32, np.int64):
-        nodes = [f'{chr(i + 65)}:{weights[i]:.2f}' for i in range(len(items))]
+        nodes = [f'{chr(i + 65)}:{weights[i]:.2f}' for i in range(len(data))]
     else:
-        nodes = [f'{chr(i + 65)}:{weights[i]}' for i in range(len(items))]
+        nodes = [f'{chr(i + 65)}:{weights[i]}' for i in range(len(data))]
 
     graph = GraphWrapper()
     for edge in items:
@@ -97,6 +100,7 @@ def draw(data: List[List[int]] | np.ndarray,
         'font_size': 20,
     }
     nx.draw_networkx_edge_labels(graph, pos, edge_labels=edge_labels, **edge_options)
+    plt.show() if show else None
 
 
 def graph_cover_greedy(data: List[List[int]] | np.ndarray,
@@ -157,13 +161,13 @@ def iterate_graph(data: List[List[int]] | np.ndarray,
         The best and the worst:
             The index of the graph cover and the weight.
     """
-    best = None, -np.inf
-    worst = None, np.inf
+    best = None, np.inf
+    worst = None, -np.inf
     for perm in permutations(data):
         cover, weight = graph_cover_greedy(perm, weights)
-        if weight > best[1]:
+        if weight < best[1]:
             best = cover, weight
-        if weight < worst[1]:
+        if weight > worst[1]:
             worst = cover, weight
     return best, worst
 
@@ -184,7 +188,7 @@ def main_random():
     print('data:\n', data)
 
     weights = np.random.random(len(np.unique(data.flatten()))) * 10
-    _, (gra_idx, gra_w) = iterate_graph(data, weights)
+    (gra_idx, gra_w), _ = iterate_graph(data, weights)
     data = graph_set_convert(data)
     set_idx, set_w = set_cover_greedy(data, weights, lambda *_: 1)
     best_idx, best_w = set_cover_int(data, weights)
@@ -211,7 +215,7 @@ def main_deterministic():
         48,
         278
     ]
-    _, (gra_idx, gra_w) = iterate_graph(data, weights)
+    (gra_idx, gra_w), _ = iterate_graph(data, weights)
     data = graph_set_convert(data)
     set_idx, set_w = set_cover_greedy(data, weights, lambda *_: 1)
     best_idx, best_w = set_cover_int(data, weights)
