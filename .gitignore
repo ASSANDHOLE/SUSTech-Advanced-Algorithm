@@ -6,5 +6,6 @@ __pycache__/
 .idea/
 cmake-build-*/
 *.so
+*.dll
 .vscode/
 tmp/
