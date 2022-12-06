@@ -140,12 +140,12 @@ def graph_cover_greedy(data: List[List[int]] | np.ndarray,
                 node_done[data[i][0]] = True
                 node_done[data[i][1]] = True
                 continue
-            if nodes[data[i][0]] > nodes[data[i][1]]:
+            if nodes[data[i][0]] < nodes[data[i][1]]:
                 node_done[data[i][0]] = True
-                nodes[data[i][0]] -= nodes[data[i][1]]
+                nodes[data[i][1]] -= nodes[data[i][0]]
             else:
                 node_done[data[i][1]] = True
-                nodes[data[i][1]] -= nodes[data[i][0]]
+                nodes[data[i][0]] -= nodes[data[i][1]]
     return np.where(node_done)[0].tolist(), np.array(weights)[node_done].sum()
 
 
@@ -175,22 +175,29 @@ def iterate_graph(data: List[List[int]] | np.ndarray,
 def main_random():
     len_data = 8
     max_node = 5
-    data = np.random.randint(0, max_node, (len_data, 2))
-    # remove duplicates
-    data = np.unique(data, axis=0)
-    # remove self loops
-    data = data[data[:, 0] != data[:, 1]]
-    # remove not exist nodes
-    for i in range(max_node):
-        if i not in data.flatten():
-            data -= (data > i).astype(int)
+    while True:
+        data = np.random.randint(0, max_node, (len_data, 2))
+        data.sort(axis=1)
+        # data_bak = data.copy()
+        # remove duplicates
+        data = np.unique(data, axis=0)
+        # remove self loops
+        data = data[data[:, 0] != data[:, 1]]
+        # remove not exist nodes
+        for i in range(max_node):
+            while i not in data.flatten():
+                if i >= np.max(data.flatten()):
+                    break
+                data -= (data > i).astype(int)
 
-    print('data:\n', data)
+        print('data:\n', data)
 
-    weights = np.random.random(len(np.unique(data.flatten()))) * 10
-    (gra_idx, gra_w), _ = iterate_graph(data, weights)
-    data = graph_set_convert(data)
-    set_idx, set_w = set_cover_greedy(data, weights, lambda *_: 1)
+        weights = np.random.random(len(np.unique(data.flatten()))) * 10
+        _, (gra_idx, gra_w) = iterate_graph(data, weights)
+        data = graph_set_convert(data)
+        set_idx, set_w = set_cover_greedy(data, weights, lambda *_: 1)
+        if gra_w < set_w and abs(gra_w - set_w) > 1e-6:
+            break
     best_idx, best_w = set_cover_int(data, weights)
     print(f'gra_idx:  {gra_idx}, gra_w:  {gra_w}')
     print(f'set_idx:  {set_idx}, set_w:  {set_w}')
@@ -228,4 +235,4 @@ def main_deterministic():
 
 
 if __name__ == '__main__':
-    main_deterministic()
+    main_random()

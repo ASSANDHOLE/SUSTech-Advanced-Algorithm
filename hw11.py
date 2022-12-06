@@ -6,6 +6,8 @@ from typing import List, Tuple
 
 import numpy as np
 
+from algorithms import pricing_method_float
+
 from hw08 import set_cover_greedy
 from hw09 import graph_set_convert, iterate_graph
 from hw09 import draw as draw_graph
@@ -16,24 +18,24 @@ _dll = None
 def _dependency_check():
     global _dll
     if sys.platform == 'win32':
-        if not os.path.exists('hw11_cpp/libhw11_cpp.dll'):
+        if not os.path.exists('hw11_12_cpp/libhw11_cpp.dll'):
             raise RuntimeError('Cannot find libhw11_cpp.dll,'
                                ' build it first in the '
-                               '"hw11_cpp/libhw11_cpp.dll".')
-        _dll = ctypes.cdll.LoadLibrary('hw11_cpp/libhw11_cpp.dll')
+                               '"hw11_12_cpp/libhw11_12_cpp.dll".')
+        _dll = ctypes.cdll.LoadLibrary('hw11_12_cpp/libhw11_12_cpp.dll')
     elif sys.platform == 'linux':
-        if not os.path.exists('hw11_cpp/libhw11_cpp.so'):
+        if not os.path.exists('hw11_12_cpp/libhw11_12_cpp.so'):
             full_path = os.path.abspath(os.path.dirname(__file__))
-            full_path = os.path.join(full_path, 'hw11_cpp', 'build.sh')
+            full_path = os.path.join(full_path, 'hw11_12_cpp', 'build.sh')
             cwd = os.getcwd()
             os.chdir(os.path.dirname(full_path))
             return_code = subprocess.run(['bash', os.path.basename(full_path)])
             os.chdir(cwd)
             if return_code.returncode != 0:
-                raise RuntimeError('Cannot find libhw11_cpp.so,'
+                raise RuntimeError('Cannot find libhw11_12_cpp.so,'
                                    ' try build by build.sh failed, '
-                                   ' build it manually in the "hw11_cpp"')
-        _dll = ctypes.cdll.LoadLibrary('hw11_cpp/libhw11_cpp.so')
+                                   ' build it manually in the "hw11_12_cpp"')
+        _dll = ctypes.cdll.LoadLibrary('hw11_12_cpp/libhw11_12_cpp.so')
     else:
         raise RuntimeError('Unregistered platform: {}'.format(sys.platform))
 
@@ -74,8 +76,25 @@ def _load_lp_based_solver():
     return lp_based_solver
 
 
+def _load_hw12_lp_based_solver():
+    ndptr = np.ctypeslib.ndpointer
+    lp_based_solver = _dll.Hw12LpBasedSolver
+    lp_based_solver.restype = ctypes.c_double
+    lp_based_solver.argtypes = [
+        ndptr(dtype=np.float32, flags='aligned, c_contiguous'),
+        ctypes.c_int,
+        ndptr(dtype=np.int32, flags='aligned, c_contiguous'),
+        ndptr(dtype=np.int32, flags='aligned, c_contiguous'),
+        ctypes.c_int,
+        ndptr(dtype=np.float32, flags='aligned, c_contiguous'),
+        ctypes.c_char_p
+    ]
+    return lp_based_solver
+
+
 _mip_solver = _load_mip_solver()
 _lp_based_solver = _load_lp_based_solver()
+_hw12_lp_based_solver = _load_hw12_lp_based_solver()
 
 
 def ip_solve(edges: List[List[int]] | np.ndarray,
@@ -150,13 +169,10 @@ def task1() -> Tuple[List[List[int]], List[float]]:
     graph = [
         [0, 1],
         [0, 2],
-        [1, 2],
-        [1, 3],
-        [2, 3],
-        [2, 4],
-        [3, 4]
+        [0, 3],
+        [1, 3]
     ]
-    weights = [1, 3, 3, 4, 2.1]
+    weights = [683, 202, 435, 342]
     return graph, weights
 
 
@@ -170,19 +186,15 @@ def task2() -> Tuple[List[List[int]], List[float]]:
         The graph data and the weights of the nodes.
     """
     graph = [
-        [0, 4],
-        [1, 0],
+        [0, 1],
+        [0, 2],
+        [0, 3],
+        # [1, 2],
         [1, 3],
-        [1, 4],
-        [2, 1],
-        [2, 4]
+        [2, 3],
     ]
     weights = [
-        816,
-        829,
-        65,
-        352,
-        536
+        3, 3, 3, 3
     ]
     return graph, weights
 
@@ -198,18 +210,11 @@ def task3() -> Tuple[List[List[int]], List[float]]:
     """
     graph = [
         [0, 1],
-        [0, 4],
-        [1, 2],
-        [1, 3],
-        [2, 0],
-        [4, 3]
+        [0, 2],
+        [1, 3]
     ]
     weights = [
-        240,
-        127,
-        28,
-        189,
-        645
+        720, 802, 422, 707
     ]
     return graph, weights
 
@@ -219,13 +224,19 @@ def main_random():
     max_node = 5
     while True:
         data = np.random.randint(0, max_node, (len_data, 2))
+        data.sort(axis=1)
+        # data_bak = data.copy()
         # remove duplicates
         data = np.unique(data, axis=0)
         # remove self loops
         data = data[data[:, 0] != data[:, 1]]
         # remove not exist nodes
+        if len(data.flatten()) == 0:
+            continue
         for i in range(max_node):
-            if i not in data.flatten():
+            while i not in data.flatten():
+                if i >= np.max(data.flatten()):
+                    break
                 data -= (data > i).astype(int)
 
         weights = np.random.random(len(np.unique(data.flatten()))) * 10
@@ -238,14 +249,14 @@ def main_random():
         def same_cover(a, b):
             return set(a) == set(b)
 
-        cover1, weight1 = lp_based_solve(graph, weights)
+        _, (cover1, weight1) = pricing_method_float(graph, weights)
         cover2, weight2 = set_cover_greedy(g_set, weights, lambda *_: 1)
         if not approx_eq(weight1, weight2) or not same_cover(cover1, cover2):
             if weight1 > weight2:
                 continue
         else:
             continue
-        (cover3, weight3), _ = iterate_graph(graph, weights)
+        cover3, weight3 = lp_based_solve(graph, weights)
         if not approx_eq(weight1, weight3) or not same_cover(cover1, cover3):
             if weight1 > weight3:
                 continue
@@ -261,10 +272,12 @@ def main_random():
 
 
 def main():
+    from hw09 import G, Y
     graph, weights = task3()
     g_set = graph_set_convert(graph)
     print('The graph is:')
-    draw_graph(g_set, weights, 'green')
+    color = [G, Y, Y, G]
+    draw_graph(g_set, weights, color)
     print('The greedy set solution is:')
     cover, weight = set_cover_greedy(g_set, weights, lambda *_: 1)
     print(cover, weight)
@@ -273,7 +286,7 @@ def main():
     cover, weight = lp_based_solve(graph, weights)
     print(cover, weight)
     print('The greedy graph solution is:')
-    (cover, weight), _ = iterate_graph(graph, weights)
+    (cover, weight), _ = pricing_method_float(graph, weights)
     print(cover, weight)
 
 

@@ -751,3 +751,145 @@ extern "C" int *SetCoverInt(const int *subsets, const int *subset_lens, const in
 extern "C" float *SetCoverFloat(const int *subsets, const int *subset_lens, const float *subset_weights, int *order, int subset_len_len) {
     return SetCover<float>(subsets, subset_lens, subset_weights, order, subset_len_len);
 }
+
+int PricingInnerInt(int const * const * const edge, int len_edge, const int *weight, int len_weight, int *arr, int *nodes, bool *node_done, bool *edge_done) {
+    std::copy(weight, weight + len_weight, nodes);
+    std::fill(node_done, node_done + len_weight, false);
+    std::fill(edge_done, edge_done + len_edge, false);
+    while (!std::all_of(edge_done, edge_done + len_edge, [](bool b) { return b; })) {
+        for (int i = 0; i < len_edge; ++i) {
+            if (edge_done[i]) {
+                continue;
+            }
+            edge_done[i] = true;
+            if (node_done[edge[i][0]] or node_done[edge[i][1]]) {
+                continue;
+            }
+            if (nodes[edge[i][0]] == nodes[edge[i][1]]) {
+                node_done[edge[i][0]] = true;
+                node_done[edge[i][1]] = true;
+                continue;
+            }
+            if (nodes[edge[i][0]] < nodes[edge[i][1]]) {
+                nodes[edge[i][1]] -= nodes[edge[i][0]];
+                node_done[edge[i][0]] = true;
+            } else {
+                nodes[edge[i][0]] -= nodes[edge[i][1]];
+                node_done[edge[i][1]] = true;
+            }
+        }
+    }
+    int ret = 0;
+    for (int i = 0; i < len_weight; ++i) {
+        if (node_done[i]) {
+            ret += weight[i];
+        }
+    }
+    std::copy(node_done, node_done + len_weight, arr);
+    return ret;
+}
+
+extern "C" int *PricingMethodInt(const int *edge, int len_edge, const int *weights, int len_weight, int *best, int *worst) {
+    int *ret = new int[2];
+    int best_cost = std::numeric_limits<int>::max();
+    int worst_cost = std::numeric_limits<int>::min();
+    int *node = new int[len_weight];
+    bool *node_done = new bool[len_weight];
+    bool *edge_done = new bool[len_edge];
+    int *arr = new int[len_weight];
+    int ** const edge_wrapper = new int *[len_edge];
+    for (int i = 0; i < len_edge; ++i) {
+        edge_wrapper[i] = const_cast<int *>(edge + i * 2);
+    }
+    std::sort(edge_wrapper, edge_wrapper + len_edge);
+    do {
+        int cost = PricingInnerInt(edge_wrapper, len_edge, weights, len_weight, arr, node, node_done, edge_done);
+        if (cost < best_cost) {
+            best_cost = cost;
+            std::copy(arr, arr + len_weight, best);
+        }
+        if (cost > worst_cost) {
+            worst_cost = cost;
+            std::copy(arr, arr + len_weight, worst);
+        }
+    } while (std::next_permutation(edge_wrapper, edge_wrapper + len_edge));
+    ret[0] = best_cost;
+    ret[1] = worst_cost;
+    delete [] node;
+    delete [] node_done;
+    delete [] edge_done;
+    delete [] arr;
+    delete [] edge_wrapper;
+    return ret;
+}
+
+float PricingInnerFloat(int const * const * const edge, int len_edge, const float *weight, int len_weight, int *arr, int *nodes, bool *node_done, bool *edge_done) {
+    std::copy(weight, weight + len_weight, nodes);
+    std::fill(node_done, node_done + len_weight, false);
+    std::fill(edge_done, edge_done + len_edge, false);
+    while (!std::all_of(edge_done, edge_done + len_edge, [](bool b) { return b; })) {
+        for (int i = 0; i < len_edge; ++i) {
+            if (edge_done[i]) {
+                continue;
+            }
+            edge_done[i] = true;
+            if (node_done[edge[i][0]] or node_done[edge[i][1]]) {
+                continue;
+            }
+            if (std::abs(nodes[edge[i][0]] - nodes[edge[i][1]]) < 1e-6) {
+                node_done[edge[i][0]] = true;
+                node_done[edge[i][1]] = true;
+                continue;
+            }
+            if (nodes[edge[i][0]] < nodes[edge[i][1]]) {
+                nodes[edge[i][1]] -= nodes[edge[i][0]];
+                node_done[edge[i][0]] = true;
+            } else {
+                nodes[edge[i][0]] -= nodes[edge[i][1]];
+                node_done[edge[i][1]] = true;
+            }
+        }
+    }
+    float ret = 0;
+    for (int i = 0; i < len_weight; ++i) {
+        if (node_done[i]) {
+            ret += weight[i];
+        }
+    }
+    std::copy(node_done, node_done + len_weight, arr);
+    return ret;
+}
+
+extern "C" float *PricingMethodFloat(const int *edge, int len_edge, const float *weights, int len_weight, int *best, int *worst) {
+    float *ret = new float[2];
+    float best_cost = std::numeric_limits<float>::max();
+    float worst_cost = std::numeric_limits<float>::min();
+    int *node = new int[len_weight];
+    bool *node_done = new bool[len_weight];
+    bool *edge_done = new bool[len_edge];
+    int *arr = new int[len_weight];
+    int ** const edge_wrapper = new int *[len_edge];
+    for (int i = 0; i < len_edge; ++i) {
+        edge_wrapper[i] = const_cast<int *>(edge + i * 2);
+    }
+    std::sort(edge_wrapper, edge_wrapper + len_edge);
+    do {
+        float cost = PricingInnerFloat(edge_wrapper, len_edge, weights, len_weight, arr, node, node_done, edge_done);
+        if (cost < best_cost) {
+            best_cost = cost;
+            std::copy(arr, arr + len_weight, best);
+        }
+        if (cost > worst_cost) {
+            worst_cost = cost;
+            std::copy(arr, arr + len_weight, worst);
+        }
+    } while (std::next_permutation(edge_wrapper, edge_wrapper + len_edge));
+    ret[0] = best_cost;
+    ret[1] = worst_cost;
+    delete [] node;
+    delete [] node_done;
+    delete [] edge_done;
+    delete [] arr;
+    delete [] edge_wrapper;
+    return ret;
+}

@@ -8,5 +8,5 @@ cd build || exit 1
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j4
 cd ..
-cp build/libhw11_cpp.so ./
+cp build/libhw11_12_cpp.so ./
 echo "Done"

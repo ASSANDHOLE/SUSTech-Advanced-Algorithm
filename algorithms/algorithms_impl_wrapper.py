@@ -175,6 +175,34 @@ def _c_set_cover_float():
     return sc
 
 
+def _c_pricing_method_int():
+    pmf = _lib.PricingMethodInt
+    pmf.restype = POINTER(c_int)
+    pmf.argtypes = [
+        nd_ptr(i32),
+        c_int,
+        nd_ptr(i32),
+        c_int,
+        nd_ptr(i32),
+        nd_ptr(i32),
+    ]
+    return pmf
+
+
+def _c_pricing_method_float():
+    pmf = _lib.PricingMethodFloat
+    pmf.restype = POINTER(c_float)
+    pmf.argtypes = [
+        nd_ptr(i32),
+        c_int,
+        nd_ptr(f32),
+        c_int,
+        nd_ptr(i32),
+        nd_ptr(i32),
+    ]
+    return pmf
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
@@ -192,6 +220,8 @@ _fuzzy_c_means_2d_int = _c_fuzzy_c_means_2d_int()
 _fuzzy_c_means_2d_float = _c_fuzzy_c_means_2d_float()
 _set_cover_int = _c_set_cover_int()
 _set_cover_float = _c_set_cover_float()
+_pricing_method_int = _c_pricing_method_int()
+_pricing_method_float = _c_pricing_method_float()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -800,3 +830,68 @@ def set_cover_float(subsets: List[List[int]], weights: List[float] | np.ndarray)
     n_subsets_used = pack('f', n_subsets_used)
     n_subsets_used = unpack('i', n_subsets_used)[0]
     return order[:n_subsets_used].tolist(), total_weight
+
+
+def pricing_method_int(edges: List[List[int]] | np.ndarray,
+                       weights: List[int] | np.ndarray) -> \
+        Tuple[Tuple[np.ndarray, int], Tuple[np.ndarray, int]]:
+    """
+    Pricing Method for Weight in int, i.e., compare will use ==.
+
+    Parameters
+    ----------
+    edges : List[List[int]] | np.ndarray
+       The graph data. [[node1, node2], ...]
+    weights : List[int] | np.ndarray
+        The weights of the nodes. [weight1, weight2, ...]
+
+    Returns
+    -------
+    Tuple[Tuple[np.ndarray, int], Tuple[np.ndarray, int]]
+        The best and the worst:
+            The index of the graph cover and the weight.
+    """
+    edge_in = np.array(edges).flatten().astype(i32)
+    weights = np.array(weights, dtype=i32)
+    best = np.zeros_like(weights).astype(i32)
+    worst = np.zeros_like(weights).astype(i32)
+    res = _pricing_method_int(edge_in, len(edges), weights, len(weights), best, worst)
+    res = as_array(res, shape=(2,))
+    best_weight = res[0]
+    worst_weight = res[1]
+    best = np.where(best == 1)[0]
+    worst = np.where(worst == 1)[0]
+    return (best, best_weight), (worst, worst_weight)
+
+
+def pricing_method_float(edges: List[List[int]] | np.ndarray,
+                         weights: List[float] | np.ndarray) -> \
+            Tuple[Tuple[np.ndarray, float], Tuple[np.ndarray, float]]:
+        """
+        Pricing Method for Weight in float, i.e., compare will use abs(-) < 1e-6.
+
+        Parameters
+        ----------
+        edges : List[List[int]] | np.ndarray
+        The graph data. [[node1, node2], ...]
+        weights : List[float] | np.ndarray
+            The weights of the nodes. [weight1, weight2, ...]
+
+        Returns
+        -------
+        Tuple[Tuple[np.ndarray, float], Tuple[np.ndarray, float]]
+            The best and the worst:
+                The index of the graph cover and the weight.
+        """
+        edge_in = np.array(edges).flatten().astype(i32)
+        weights = np.array(weights, dtype=f32)
+        best = np.zeros_like(weights).astype(i32)
+        worst = np.zeros_like(weights).astype(i32)
+        res = _pricing_method_float(edge_in, len(edges), weights, len(weights), best, worst)
+        res = as_array(res, shape=(2,))
+        best_weight = res[0]
+        worst_weight = res[1]
+        best = np.where(best == 1)[0]
+        worst = np.where(worst == 1)[0]
+        return (best, best_weight), (worst, worst_weight)
+

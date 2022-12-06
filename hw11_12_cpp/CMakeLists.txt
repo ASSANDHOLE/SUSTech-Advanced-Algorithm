@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(hw11_cpp)
+project(hw11_12_cpp)
 
 set(CMAKE_CXX_STANDARD 20)
 
@@ -12,8 +12,8 @@ if (NOT TARGET ortools::ortools)
       ../hw10_cpp/depenencies/README.md to install")
 endif ()
 
-add_library(hw11_cpp SHARED main.cpp)
-target_link_libraries(hw11_cpp ortools::ortools)
+add_library(hw11_12_cpp SHARED main.cpp)
+target_link_libraries(hw11_12_cpp ortools::ortools)
 
-add_executable(hw11_cpp_test test.cpp)
-target_link_libraries(hw11_cpp_test hw11_cpp)
+add_executable(hw11_12_cpp_test test.cpp)
+target_link_libraries(hw11_12_cpp_test ortools::ortools)

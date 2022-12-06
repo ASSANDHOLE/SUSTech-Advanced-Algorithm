@@ -17,3 +17,5 @@ from .algorithms_impl_wrapper import fuzzy_c_means_2d_int
 from .algorithms_impl_wrapper import fuzzy_c_means_2d_float
 from .algorithms_impl_wrapper import set_cover_int
 from .algorithms_impl_wrapper import set_cover_float
+from .algorithms_impl_wrapper import pricing_method_int
+from .algorithms_impl_wrapper import pricing_method_float
