@@ -203,6 +203,20 @@ def _c_pricing_method_float():
     return pmf
 
 
+def _c_disjoint_path_problem_c1():
+    cdp = _lib.DisjointPathProblemC1
+    cdp.restype = POINTER(c_int)
+    cdp.argtypes = [
+        c_int,
+        nd_ptr(i32),
+        c_int,
+        nd_ptr(i32),
+        nd_ptr(i32),
+        c_int
+    ]
+    return cdp
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
@@ -222,6 +236,7 @@ _set_cover_int = _c_set_cover_int()
 _set_cover_float = _c_set_cover_float()
 _pricing_method_int = _c_pricing_method_int()
 _pricing_method_float = _c_pricing_method_float()
+_disjoint_path_problem_c1 = _c_disjoint_path_problem_c1()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -894,4 +909,84 @@ def pricing_method_float(edges: List[List[int]] | np.ndarray,
         best = np.where(best == 1)[0]
         worst = np.where(worst == 1)[0]
         return (best, best_weight), (worst, worst_weight)
+
+
+def disjoint_path_problem(edges: List[List[int]] | np.ndarray,
+                          route_pairs: List[Tuple[int, int]] | np.ndarray,
+                          edge_capacity: int) -> Tuple[
+    Tuple[List[int], List[List[Tuple[int, int]]]],
+    Tuple[List[int], List[List[Tuple[int, int]]]]
+]:
+    """
+    Disjoint Path Problem.
+
+    Parameters
+    ----------
+    edges : List[List[int]] | np.ndarray
+        The graph data. [[node1, node2], ...]
+    route_pairs : List[Tuple[int, int] | List[int, int]] | np.ndarray
+        The route pairs. [(node1, node2), ...]
+    edge_capacity : int
+        The capacity of the edges.
+
+    Returns
+    -------
+    Tuple[Tuple[List[int], List[List[Tuple[int, int]]]],
+          Tuple[List[int], List[List[Tuple[int, int]]]]]
+        The best and the worst:
+            The order and the list of routes.
+    """
+    edges = np.array(edges)
+    edge_len = len(edges)
+    edges = edges.flatten().astype(i32)
+    route_pairs = np.array(route_pairs).astype(i32)
+    start_nodes = route_pairs[:, 0]
+    end_nodes = route_pairs[:, 1]
+    start_nodes = np.ascontiguousarray(start_nodes)
+    end_nodes = np.ascontiguousarray(end_nodes)
+    source_target_len = len(start_nodes)
+    vertex_num = np.max(edges) + 1
+    if edge_capacity == 1:
+        ret = _disjoint_path_problem_c1(vertex_num,
+                                        edges, edge_len,
+                                        start_nodes,
+                                        end_nodes,
+                                        source_target_len)
+    else:
+        raise NotImplementedError
+    tmp_ret = as_array(ret, shape=(2,))
+    best_path_len = tmp_ret[0] * 2
+    worst_path_len = tmp_ret[1] * 2
+    ret = as_array(ret, shape=(2 + 2 * (best_path_len + worst_path_len + source_target_len),))
+    cur_size = 2
+    best_order = ret[cur_size:cur_size + source_target_len]
+    cur_size += source_target_len
+    worst_order = ret[cur_size:cur_size + source_target_len]
+    cur_size += source_target_len
+    best_path = ret[cur_size:cur_size + best_path_len]
+    cur_size += best_path_len
+    worst_path = ret[cur_size:cur_size + worst_path_len]
+    best_paths = [[] for _ in range(source_target_len)]
+    worst_paths = [[] for _ in range(source_target_len)]
+    # FIXME: Wrong path. Try hw13.task1_3
+    head = 0
+    for i in range(source_target_len - 1):
+        cur = np.where(best_path[head:] == route_pairs[i][1])[0]
+        if len(cur) == 0:
+            continue
+        cur = cur[0]
+        best_paths[i] = best_path[head:head + cur + 1].reshape(-1, 2).tolist()
+        head += cur + 1
+    best_paths[-1] = best_path[head:].reshape(-1, 2).tolist()
+    head = 0
+    for i in range(source_target_len - 1):
+        cur = np.where(worst_path[head:] == route_pairs[i][1])[0]
+        if len(cur) == 0:
+            continue
+        cur = cur[0]
+        worst_paths[i] = worst_path[head:head + cur + 1].reshape(-1, 2).tolist()
+        head += cur + 1
+    worst_paths[-1] = worst_path[head:].reshape(-1, 2).tolist()
+    return (best_order.tolist(), best_paths), (worst_order.tolist(), worst_paths)
+
 

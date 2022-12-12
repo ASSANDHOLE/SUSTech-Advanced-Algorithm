@@ -893,3 +893,240 @@ extern "C" float *PricingMethodFloat(const int *edge, int len_edge, const float 
     delete [] edge_wrapper;
     return ret;
 }
+
+template <typename T>
+bool IsInVector(const std::vector<T> &vec, const T &val) {
+    return std::find(vec.begin(), vec.end(), val) != vec.end();
+}
+
+struct DisjointPathGraph {
+    int vertex_num = 0;
+    int edge_capacity_value = 1;
+    std::vector<std::pair<int, int>> edges;
+    std::vector<int> source_vertex;
+    std::vector<int> target_vertex;
+    std::vector<std::pair<int, std::vector<int>>> adj_list;
+    std::vector<int> edge_capacity;
+
+    // internal variables
+    std::vector<int> _dist;
+    std::vector<int> _prev;
+    std::vector<char> _visited;
+    DisjointPathGraph() = default;
+    DisjointPathGraph(int vertex_num, int edge_capacity_value,
+                      const int *edges, int edge_num,
+                      const int *source_vertex,
+                      const int *target_vertex,
+                      int source_target_len):
+    vertex_num(vertex_num), edge_capacity_value(edge_capacity_value) {
+        this->edges.reserve(edge_num);
+        for (int i = 0; i < edge_num; ++i) {
+            this->edges.emplace_back(edges[i * 2], edges[i * 2 + 1]);
+        }
+        this->source_vertex = std::vector<int>(source_vertex, source_vertex + source_target_len);
+        this->target_vertex = std::vector<int>(target_vertex, target_vertex + source_target_len);
+        this->edge_capacity = std::vector<int>(edge_num, edge_capacity_value);
+        buildAdjList();
+    }
+
+    void buildAdjList() {
+        adj_list.resize(vertex_num);
+        for (int i = 0; i < vertex_num; ++i) {
+            adj_list[i].first = i;
+            adj_list[i].second.clear();
+        }
+        for (const auto &edge: edges) {
+            adj_list[edge.first].second.push_back(edge.second);
+        }
+        std::fill(edge_capacity.begin(), edge_capacity.end(), edge_capacity_value);
+        _dist.resize(vertex_num);
+        _prev.resize(vertex_num);
+        _visited.resize(vertex_num);
+    }
+
+    [[nodiscard]] bool isValidVertex(int vertex) const {
+        if (vertex < 0 or vertex >= vertex_num) {
+            return false;
+        }
+        return true;
+    }
+
+    bool addEdge(int source, int target, bool rebuild = true) {
+        if (!isValidVertex(source) or !isValidVertex(target)) {
+            return false;
+        }
+        edges.emplace_back(source, target);
+        if (rebuild) {
+            buildAdjList();
+        }
+        return true;
+    }
+
+    bool addSourceTarget(int source, int target, bool rebuild = true) {
+        // make sure source and target not in current sources and targets
+        if (!isValidVertex(source) or !isValidVertex(target)) {
+            return false;
+        }
+        if (IsInVector(source_vertex, source) or IsInVector(target_vertex, source)) {
+            return false;
+        }
+        if (IsInVector(source_vertex, target) or IsInVector(target_vertex, target)) {
+            return false;
+        }
+        source_vertex.push_back(source);
+        target_vertex.push_back(target);
+        if (rebuild) {
+            buildAdjList();
+        }
+        return true;
+    }
+
+    void disableEdgeByOne(int in, int out) {
+        auto it = std::find(edges.begin(), edges.end(), std::make_pair(in, out));
+        if (it != edges.end()) {
+            auto idx = std::distance(edges.begin(), it);
+            if (edge_capacity[idx] > 0) {
+                edge_capacity[idx] -= 1;
+            }
+            if (edge_capacity[idx] == 0) {
+                adj_list[in].second.erase(std::find(adj_list[in].second.begin(), adj_list[in].second.end(), out));
+            }
+        }
+    }
+
+    void resetEdgeCapacity() {
+        std::fill(edge_capacity.begin(), edge_capacity.end(), edge_capacity_value);
+        for (int i = 0; i < vertex_num; ++i) {
+            adj_list[i].second.clear();
+        }
+        for (const auto &edge: edges) {
+            adj_list[edge.first].second.push_back(edge.second);
+        }
+    }
+
+    [[nodiscard]] std::vector<std::pair<int, int>> findShortestPath(int which) {
+        int source = source_vertex[which];
+        int target = target_vertex[which];
+        std::vector<std::pair<int, int>> ret;
+        // Dijkstra with directed graph
+        std::fill(_dist.begin(), _dist.end(), std::numeric_limits<int>::max());
+        std::fill(_prev.begin(), _prev.end(), -1);
+        std::fill(_visited.begin(), _visited.end(), 0);
+        _dist[source] = 0;
+        for (int i = 0; i < vertex_num; ++i) {
+            int min_dist = std::numeric_limits<int>::max();
+            int min_dist_vertex = -1;
+            for (int j = 0; j < vertex_num; ++j) {
+                if (!_visited[j] and _dist[j] < min_dist) {
+                    min_dist = _dist[j];
+                    min_dist_vertex = j;
+                }
+            }
+            if (min_dist_vertex == -1 or min_dist_vertex == target) {
+                break;
+            }
+            _visited[min_dist_vertex] = 1;
+            for (size_t j = 0; j < adj_list[min_dist_vertex].second.size(); ++j) {
+                int next_vertex = adj_list[min_dist_vertex].second[j];
+                if (_dist[next_vertex] > _dist[min_dist_vertex] + 1) {
+                    _dist[next_vertex] = _dist[min_dist_vertex] + 1;
+                    _prev[next_vertex] = min_dist_vertex;
+                }
+            }
+        }
+        if (_dist[target] == std::numeric_limits<int>::max()) {
+            return ret;
+        }
+        int cur = target;
+        while (cur != source) {
+            ret.emplace_back(_prev[cur], cur);
+            cur = _prev[cur];
+        }
+        std::reverse(ret.begin(), ret.end());
+        return ret;
+    }
+
+};
+
+extern "C" int* DisjointPathProblemC1(
+        int vertex_num,
+        const int *edges, int edge_num,
+        const int *source_vertex,
+        const int *target_vertex,
+        int source_target_len) {
+
+    DisjointPathGraph graph(vertex_num, 1, edges, edge_num, source_vertex, target_vertex, source_target_len);
+    std::vector<std::vector<std::pair<int, int>>> best_paths;
+    std::vector<std::vector<std::pair<int, int>>> worst_paths;
+    std::vector<std::vector<std::pair<int, int>>> cur_paths;
+    std::vector<int> order(source_target_len);
+    std::iota(order.begin(), order.end(), 0);
+    std::vector<char> visited(source_target_len, 0);
+    std::vector<int> best_order;
+    std::vector<int> worst_order;
+    do {
+        std::fill(visited.begin(), visited.end(), 0);
+        cur_paths.clear();
+        graph.resetEdgeCapacity();
+        for (int i = 0; i < source_target_len; ++i) {
+            auto cur_path = graph.findShortestPath(order[i]);
+            if (cur_path.empty()) {
+                continue;
+            }
+            for (const auto &edge: cur_path) {
+                graph.disableEdgeByOne(edge.first, edge.second);
+            }
+            visited[i] = 1;
+            cur_paths.push_back(cur_path);
+        }
+        // re arrange order
+//        std::vector<int> new_order;
+//        for (int i = 0; i < source_target_len; ++i) {
+//            if (visited[i]) {
+//                new_order.push_back(order[i]);
+//            }
+//        }
+//        for (int i = 0; i < source_target_len; ++i) {
+//            if (!visited[i]) {
+//                new_order.push_back(order[i]);
+//            }
+//        }
+//        order = new_order;
+        if (cur_paths.size() > best_paths.size()) {
+            best_paths = cur_paths;
+            best_order = order;
+        }
+        if (cur_paths.size() < worst_paths.size() or worst_paths.empty()) {
+            worst_paths = cur_paths;
+            worst_order = order;
+        }
+    } while (std::next_permutation(order.begin(), order.end()));
+    int best_path_len = 0;
+    int worst_path_len = 0;
+    for (const auto &path: best_paths) {
+        best_path_len += path.size();
+    }
+    for (const auto &path: worst_paths) {
+        worst_path_len += path.size();
+    }
+    int ret_size = 2 + 2 * (source_target_len + 2 * best_path_len + 2 * worst_path_len);
+    int *ret = new int[ret_size];
+    ret[0] = best_path_len;
+    ret[1] = worst_path_len;
+    std::copy(best_order.begin(), best_order.end(), ret + 2);
+    std::copy(worst_order.begin(), worst_order.end(), ret + 2 + source_target_len);
+    int cur = 2 + 2 * source_target_len;
+    for (const auto &path: best_paths) {
+        for (const auto &edge: path) {
+            ret[cur++] = edge.first;
+            ret[cur++] = edge.second;
+        }
+    }
+    for (const auto &path: worst_paths) {
+        for (const auto &edge: path) {
+            ret[cur++] = edge.first;
+            ret[cur++] = edge.second;
+        }
+    }
+    return ret;
+}

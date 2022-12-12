@@ -77,7 +77,6 @@ def cycle_in_graph_detect(x: np.ndarray) -> bool:
         return False
 
 
-
 def draw_graph(machines: List[List[int]],
                jobs_weights: List[float],
                solution: np.ndarray,

@@ -19,3 +19,4 @@ from .algorithms_impl_wrapper import set_cover_int
 from .algorithms_impl_wrapper import set_cover_float
 from .algorithms_impl_wrapper import pricing_method_int
 from .algorithms_impl_wrapper import pricing_method_float
+from .algorithms_impl_wrapper import disjoint_path_problem
