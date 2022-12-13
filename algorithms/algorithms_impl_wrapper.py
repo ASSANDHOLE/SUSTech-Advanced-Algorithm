@@ -217,6 +217,21 @@ def _c_disjoint_path_problem_c1():
     return cdp
 
 
+def _c_disjoint_path_problem_cn():
+    cdp = _lib.DisjointPathProblemCn
+    cdp.restype = POINTER(c_int)
+    cdp.argtypes = [
+        c_int,
+        nd_ptr(i32),
+        c_int,
+        nd_ptr(i32),
+        nd_ptr(i32),
+        c_int,
+        c_int
+    ]
+    return cdp
+
+
 _tsp_naive = _c_tsp_naive()
 _load_balancing_int = _c_load_balancing_int()
 _load_balancing_greedy_int = _c_load_balancing_greedy_int()
@@ -237,6 +252,7 @@ _set_cover_float = _c_set_cover_float()
 _pricing_method_int = _c_pricing_method_int()
 _pricing_method_float = _c_pricing_method_float()
 _disjoint_path_problem_c1 = _c_disjoint_path_problem_c1()
+_disjoint_path_problem_cn = _c_disjoint_path_problem_cn()
 
 
 def tsp_naive(pts: np.ndarray) -> Tuple[np.ndarray, float]:
@@ -953,7 +969,12 @@ def disjoint_path_problem(edges: List[List[int]] | np.ndarray,
                                         end_nodes,
                                         source_target_len)
     else:
-        raise NotImplementedError
+        ret = _disjoint_path_problem_cn(vertex_num,
+                                        edges, edge_len,
+                                        start_nodes,
+                                        end_nodes,
+                                        source_target_len,
+                                        edge_capacity)
     tmp_ret = as_array(ret, shape=(2,))
     best_path_len = tmp_ret[0] * 2
     worst_path_len = tmp_ret[1] * 2
@@ -968,10 +989,11 @@ def disjoint_path_problem(edges: List[List[int]] | np.ndarray,
     worst_path = ret[cur_size:cur_size + worst_path_len]
     best_paths = [[] for _ in range(source_target_len)]
     worst_paths = [[] for _ in range(source_target_len)]
-    # FIXME: Wrong path. Try hw13.task1_3
     head = 0
     for i in range(source_target_len - 1):
-        cur = np.where(best_path[head:] == route_pairs[i][1])[0]
+        if head < len(best_paths) and best_paths[head] != route_pairs[best_order[i]][0]:
+            continue
+        cur = np.where(best_path[head:] == route_pairs[best_order[i]][1])[0]
         if len(cur) == 0:
             continue
         cur = cur[0]
@@ -980,7 +1002,9 @@ def disjoint_path_problem(edges: List[List[int]] | np.ndarray,
     best_paths[-1] = best_path[head:].reshape(-1, 2).tolist()
     head = 0
     for i in range(source_target_len - 1):
-        cur = np.where(worst_path[head:] == route_pairs[i][1])[0]
+        if head < len(worst_paths) and worst_paths[head] != route_pairs[worst_order[i]][0]:
+            continue
+        cur = np.where(worst_path[head:] == route_pairs[worst_order[i]][1])[0]
         if len(cur) == 0:
             continue
         cur = cur[0]

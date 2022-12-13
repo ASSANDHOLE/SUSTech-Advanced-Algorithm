@@ -5,6 +5,7 @@
 #include <iostream>
 #include <random>
 #include <set>
+#include <optional>
 
 template <typename iter_type, typename val_type>
 bool next_assignment(iter_type start, iter_type end, val_type n) {
@@ -902,14 +903,17 @@ bool IsInVector(const std::vector<T> &vec, const T &val) {
 struct DisjointPathGraph {
     int vertex_num = 0;
     int edge_capacity_value = 1;
+    float beta = 1.0f;
     std::vector<std::pair<int, int>> edges;
     std::vector<int> source_vertex;
     std::vector<int> target_vertex;
     std::vector<std::pair<int, std::vector<int>>> adj_list;
     std::vector<int> edge_capacity;
+    std::vector<float> edge_weight;
 
     // internal variables
     std::vector<int> _dist;
+    std::vector<float> _dist_f;
     std::vector<int> _prev;
     std::vector<char> _visited;
     DisjointPathGraph() = default;
@@ -919,6 +923,7 @@ struct DisjointPathGraph {
                       const int *target_vertex,
                       int source_target_len):
     vertex_num(vertex_num), edge_capacity_value(edge_capacity_value) {
+        beta = std::pow(float(edge_num), 1.0f / float(edge_capacity_value + 1));
         this->edges.reserve(edge_num);
         for (int i = 0; i < edge_num; ++i) {
             this->edges.emplace_back(edges[i * 2], edges[i * 2 + 1]);
@@ -926,6 +931,7 @@ struct DisjointPathGraph {
         this->source_vertex = std::vector<int>(source_vertex, source_vertex + source_target_len);
         this->target_vertex = std::vector<int>(target_vertex, target_vertex + source_target_len);
         this->edge_capacity = std::vector<int>(edge_num, edge_capacity_value);
+        this->edge_weight = std::vector<float>(edge_num, 1.0f);
         buildAdjList();
     }
 
@@ -939,7 +945,9 @@ struct DisjointPathGraph {
             adj_list[edge.first].second.push_back(edge.second);
         }
         std::fill(edge_capacity.begin(), edge_capacity.end(), edge_capacity_value);
+        std::fill(edge_weight.begin(), edge_weight.end(), 1.0f);
         _dist.resize(vertex_num);
+        _dist_f.resize(vertex_num);
         _prev.resize(vertex_num);
         _visited.resize(vertex_num);
     }
@@ -987,6 +995,9 @@ struct DisjointPathGraph {
             auto idx = std::distance(edges.begin(), it);
             if (edge_capacity[idx] > 0) {
                 edge_capacity[idx] -= 1;
+                if (edge_capacity_value > 1) {
+                    edge_weight[idx] *= beta;
+                }
             }
             if (edge_capacity[idx] == 0) {
                 adj_list[in].second.erase(std::find(adj_list[in].second.begin(), adj_list[in].second.end(), out));
@@ -994,8 +1005,25 @@ struct DisjointPathGraph {
         }
     }
 
+    void enableEdgeByOne(int in, int out) {
+        auto it = std::find(edges.begin(), edges.end(), std::make_pair(in, out));
+        if (it != edges.end()) {
+            auto idx = std::distance(edges.begin(), it);
+            if (edge_capacity[idx] < edge_capacity_value) {
+                edge_capacity[idx] += 1;
+                if (edge_capacity_value > 1) {
+                    edge_weight[idx] /= beta;
+                }
+            }
+            if (edge_capacity[idx] == 1) {
+                adj_list[in].second.push_back(out);
+            }
+        }
+    }
+
     void resetEdgeCapacity() {
         std::fill(edge_capacity.begin(), edge_capacity.end(), edge_capacity_value);
+        std::fill(edge_weight.begin(), edge_weight.end(), 1.0f);
         for (int i = 0; i < vertex_num; ++i) {
             adj_list[i].second.clear();
         }
@@ -1004,7 +1032,7 @@ struct DisjointPathGraph {
         }
     }
 
-    [[nodiscard]] std::vector<std::pair<int, int>> findShortestPath(int which) {
+    [[nodiscard]] std::tuple<int, std::vector<std::pair<int, int>>> findShortestPathC1(int which) {
         int source = source_vertex[which];
         int target = target_vertex[which];
         std::vector<std::pair<int, int>> ret;
@@ -1035,7 +1063,7 @@ struct DisjointPathGraph {
             }
         }
         if (_dist[target] == std::numeric_limits<int>::max()) {
-            return ret;
+            return {-1, ret};
         }
         int cur = target;
         while (cur != source) {
@@ -1043,72 +1071,255 @@ struct DisjointPathGraph {
             cur = _prev[cur];
         }
         std::reverse(ret.begin(), ret.end());
-        return ret;
+        return {_dist[target], ret};
+    }
+    
+    [[nodiscard]] std::tuple<float, std::vector<std::pair<int, int>>> findShortestPathCn(int which) {
+        int source = source_vertex[which];
+        int target = target_vertex[which];
+        std::vector<std::pair<int, int>> ret;
+        // Dijkstra with directed graph with weight
+        std::fill(_dist_f.begin(), _dist_f.end(), std::numeric_limits<float>::max());
+        std::fill(_prev.begin(), _prev.end(), -1);
+        std::fill(_visited.begin(), _visited.end(), 0);
+        _dist_f[source] = 0.0f;
+        for (int i = 0; i < vertex_num; ++i) {
+            float min_dist = std::numeric_limits<float>::max();
+            int min_dist_vertex = -1;
+            for (int j = 0; j < vertex_num; ++j) {
+                if (!_visited[j] and _dist_f[j] < min_dist) {
+                    min_dist = _dist_f[j];
+                    min_dist_vertex = j;
+                }
+            }
+            if (min_dist_vertex == -1 or min_dist_vertex == target) {
+                break;
+            }
+            _visited[min_dist_vertex] = 1;
+            for (size_t j = 0; j < adj_list[min_dist_vertex].second.size(); ++j) {
+                int next_vertex = adj_list[min_dist_vertex].second[j];
+                const auto new_dist_f = _dist_f[min_dist_vertex] + edge_weight[getEdgeIndex(min_dist_vertex, next_vertex)];
+                if (_dist_f[next_vertex] > new_dist_f) {
+                    _dist_f[next_vertex] = new_dist_f;
+                    _prev[next_vertex] = min_dist_vertex;
+                }
+            }
+        }
+        if (_dist_f[target] == std::numeric_limits<float>::max()) {
+            return {-1.0f, ret};
+        }
+        int cur = target;
+        while (cur != source) {
+            ret.emplace_back(_prev[cur], cur);
+            cur = _prev[cur];
+        }
+        std::reverse(ret.begin(), ret.end());
+        return {_dist_f[target], ret};
+    }
+
+    [[nodiscard]] size_t getEdgeIndex(int in, int out) const {
+        for (size_t i = 0; i < edges.size(); ++i) {
+            if (edges[i].first == in and edges[i].second == out) {
+                return i;
+            }
+        }
+        return (size_t) -1;
     }
 
 };
 
-extern "C" int* DisjointPathProblemC1(
+template <typename T, typename IT>
+std::vector<T> RearrangeOrder(const std::vector<T> &vec, IT &visited) {
+    std::vector<T> ret;
+    ret.reserve(vec.size());
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (visited[i]) {
+            ret.push_back(vec[i]);
+        }
+    }
+    for (size_t i = 0; i < vec.size(); ++i) {
+        if (!visited[i]) {
+            ret.push_back(vec[i]);
+        }
+    }
+    return ret;
+}
+
+template <typename T, typename F>
+int* DisjointPathProblemTemplate(
         int vertex_num,
         const int *edges, int edge_num,
         const int *source_vertex,
         const int *target_vertex,
-        int source_target_len) {
+        int source_target_len,
+        int capacity,
+        T fn, F val_indicator) {
 
-    DisjointPathGraph graph(vertex_num, 1, edges, edge_num, source_vertex, target_vertex, source_target_len);
+    using return_type = std::tuple<std::vector<int>, std::vector<int>>;
+    DisjointPathGraph graph(vertex_num, capacity, edges, edge_num, source_vertex, target_vertex, source_target_len);
     std::vector<std::vector<std::pair<int, int>>> best_paths;
     std::vector<std::vector<std::pair<int, int>>> worst_paths;
-    std::vector<std::vector<std::pair<int, int>>> cur_paths;
-    std::vector<int> order(source_target_len);
-    std::iota(order.begin(), order.end(), 0);
-    std::vector<char> visited(source_target_len, 0);
-    std::vector<int> best_order;
-    std::vector<int> worst_order;
-    do {
-        std::fill(visited.begin(), visited.end(), 0);
-        cur_paths.clear();
-        graph.resetEdgeCapacity();
-        for (int i = 0; i < source_target_len; ++i) {
-            auto cur_path = graph.findShortestPath(order[i]);
-            if (cur_path.empty()) {
-                continue;
+    auto obj_fn = std::bind(fn, std::ref(graph), std::placeholders::_1);
+    std::function<return_type (std::vector<int>, int)> algo =
+            [&](std::vector<int> order, int exploring) {
+        if (exploring == -1) {
+            while (true) {
+                std::vector<int> next;
+                F min_cost = std::numeric_limits<F>::max();
+                std::vector<std::pair<int, int>> min_path;
+                for (int i = 0; i < source_target_len; ++i) {
+                    if (IsInVector(order, i)) {
+                        continue;
+                    }
+                    auto [len, path] = obj_fn(i);
+                    if (len == val_indicator) {
+                        continue;
+                    }
+                    if (len < min_cost) {
+                        min_cost = len;
+                        next.clear();
+                        next.push_back(i);
+                        min_path = std::move(path);
+                    } else if (len == min_cost) {
+                        next.push_back(i);
+                    }
+                }
+                if (next.empty()) {
+                    break;
+                }
+                if (next.size() > 1) {
+                    size_t best_len = std::numeric_limits<size_t>::max();
+                    std::vector<int> best_order;
+                    size_t worst_len = std::numeric_limits<size_t>::min();
+                    std::vector<int> worst_order;
+                    for (auto i : next) {
+                        auto [bo, wo] = algo(order, i);
+                        if (bo.size() < best_len) {
+                            best_len = bo.size();
+                            best_order = bo;
+                        }
+                        if (wo.size() > worst_len) {
+                            worst_len = wo.size();
+                            worst_order = wo;
+                        }
+                    }
+                    return std::make_tuple(best_order, worst_order);
+                }
+                order.push_back(next[0]);
+                for (const auto &edge : min_path) {
+                    graph.disableEdgeByOne(edge.first, edge.second);
+                }
             }
-            for (const auto &edge: cur_path) {
+            return std::make_tuple(order, order);
+
+        } else {
+            std::vector<std::pair<int, int>> disabled_edges;
+            // handle the exploring vertex
+            auto [_len, _path] = obj_fn(exploring);
+            for (const auto &edge : _path) {
                 graph.disableEdgeByOne(edge.first, edge.second);
+                disabled_edges.push_back(edge);
             }
-            visited[i] = 1;
-            cur_paths.push_back(cur_path);
+            order.push_back(exploring);
+            while (true) {
+                std::vector<int> next;
+                F min_cost = std::numeric_limits<F>::max();
+                std::vector<std::pair<int, int>> min_path;
+                for (int i = 0; i < source_target_len; ++i) {
+                    if (IsInVector(order, i)) {
+                        continue;
+                    }
+                    auto [len, path] = obj_fn(i);
+                    if (len == val_indicator) {
+                        continue;
+                    }
+                    if (len < min_cost) {
+                        min_cost = len;
+                        next.clear();
+                        next.push_back(i);
+                        min_path = std::move(path);
+                    } else if (len == min_cost) {
+                        next.push_back(i);
+                    }
+                }
+                if (next.empty()) {
+                    break;
+                }
+                if (next.size() > 1) {
+                    size_t best_len = std::numeric_limits<size_t>::max();
+                    std::vector<int> best_order;
+                    size_t worst_len = std::numeric_limits<size_t>::min();
+                    std::vector<int> worst_order;
+                    for (auto i : next) {
+                        auto [bo, wo] = algo(order, i);
+                        if (bo.size() < best_len) {
+                            best_len = bo.size();
+                            best_order = bo;
+                        }
+                        if (bo.size() > worst_len) {
+                            worst_len = wo.size();
+                            worst_order = wo;
+                        }
+                    }
+                    std::reverse(disabled_edges.begin(), disabled_edges.end());
+                    for (const auto &edge : disabled_edges) {
+                        graph.enableEdgeByOne(edge.first, edge.second);
+                    }
+                    return std::make_tuple(best_order, worst_order);
+                }
+                order.push_back(next[0]);
+                for (const auto &edge : min_path) {
+                    graph.disableEdgeByOne(edge.first, edge.second);
+                    disabled_edges.push_back(edge);
+                }
+            }
+            std::reverse(disabled_edges.begin(), disabled_edges.end());
+            for (const auto &edge : disabled_edges) {
+                graph.enableEdgeByOne(edge.first, edge.second);
+            }
+            return std::make_tuple(order, order);
         }
-        // re arrange order
-//        std::vector<int> new_order;
-//        for (int i = 0; i < source_target_len; ++i) {
-//            if (visited[i]) {
-//                new_order.push_back(order[i]);
-//            }
-//        }
-//        for (int i = 0; i < source_target_len; ++i) {
-//            if (!visited[i]) {
-//                new_order.push_back(order[i]);
-//            }
-//        }
-//        order = new_order;
-        if (cur_paths.size() > best_paths.size()) {
-            best_paths = cur_paths;
-            best_order = order;
-        }
-        if (cur_paths.size() < worst_paths.size() or worst_paths.empty()) {
-            worst_paths = cur_paths;
-            worst_order = order;
-        }
-    } while (std::next_permutation(order.begin(), order.end()));
+    };
+
+    auto [best_order, worst_order] = algo({}, -1);
+
     int best_path_len = 0;
     int worst_path_len = 0;
-    for (const auto &path: best_paths) {
+    // generate best and worst paths from best and worst orders
+    graph.resetEdgeCapacity();
+    for (int i : best_order) {
+        auto [len, path] = obj_fn(i);
         best_path_len += path.size();
+        best_paths.push_back(std::move(path));
+        for (const auto &edge : best_paths.back()) {
+            graph.disableEdgeByOne(edge.first, edge.second);
+        }
     }
-    for (const auto &path: worst_paths) {
+    graph.resetEdgeCapacity();
+    for (int i : worst_order) {
+        auto [len, path] = obj_fn(i);
         worst_path_len += path.size();
+        worst_paths.push_back(std::move(path));
+        for (const auto &edge : worst_paths.back()) {
+            graph.disableEdgeByOne(edge.first, edge.second);
+        }
     }
+
+    // fill orders with non-used routes
+    for (int i = 0; i < source_target_len; ++i) {
+        if (IsInVector(best_order, i)) {
+            continue;
+        }
+        best_order.push_back(i);
+    }
+
+    for (int i = 0; i < source_target_len; ++i) {
+        if (IsInVector(worst_order, i)) {
+            continue;
+        }
+        worst_order.push_back(i);
+    }
+
     int ret_size = 2 + 2 * (source_target_len + 2 * best_path_len + 2 * worst_path_len);
     int *ret = new int[ret_size];
     ret[0] = best_path_len;
@@ -1129,4 +1340,27 @@ extern "C" int* DisjointPathProblemC1(
         }
     }
     return ret;
+}
+
+extern "C" int* DisjointPathProblemC1(
+        int vertex_num,
+        const int *edges, int edge_num,
+        const int *source_vertex,
+        const int *target_vertex,
+        int source_target_len) {
+    return DisjointPathProblemTemplate(
+            vertex_num, edges, edge_num, source_vertex, target_vertex, source_target_len, 1,
+            &DisjointPathGraph::findShortestPathC1, -1);
+}
+
+extern "C" int* DisjointPathProblemCn(
+        int vertex_num,
+        const int *edges, int edge_num,
+        const int *source_vertex,
+        const int *target_vertex,
+        int source_target_len,
+        int capacity) {
+    return DisjointPathProblemTemplate(
+            vertex_num, edges, edge_num, source_vertex, target_vertex, source_target_len, capacity,
+            &DisjointPathGraph::findShortestPathCn, -1.0f);
 }
